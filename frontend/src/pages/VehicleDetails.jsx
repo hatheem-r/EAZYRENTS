@@ -1,25 +1,75 @@
 import React from "react"
-import { useParams } from "react-router-dom"
+import { useParams, Link } from "react-router-dom"
+import { getVehicle } from "../api/vehicles"
+
 
 export default function VehicleDetails() {
     const params = useParams()
 
-    const [vehicle, setVehicle] = React.useState(null)
+    const [data, setData] = React.useState(null)
+    const [loading, setLoading] = React.useState(true)
+    const [error, setError] = React.useState(null)
+    const [retryKey, setRetryKey] = React.useState(0)
 
     React.useEffect(() => {
-        fetch(`/api/vehicles/${params.id}`)
-            .then(res => res.json())
-            .then(data => setVehicle(data.vehicle))
-    }, [params.id])
+        setLoading(true)
+        setError(null)
 
-    if (!vehicle) {
-        return <div>Loading {params.id}...</div>
+        let cancelled = false
+
+        getVehicle(params.id)
+            .then(result => {
+                if (cancelled) return
+                setData(result)
+            })
+            .catch(err => {
+                if (cancelled) return
+                setError(err)
+            })
+            .finally(() => {
+                if (cancelled) return
+                setLoading(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [params.id, retryKey])
+
+    if (loading) {
+        return <div>Loading vehicle {params.id}...</div>
+    }
+
+    if (error) {
+        return (
+            <div>
+                <p>Something went wrong: {error.message}</p>
+                <button onClick={() => setRetryKey(key => key + 1)}>Retry</button>
+            </div>
+        )
     }
 
     return (
+        <>
+        <Link
+                to=".."
+                relative="path"
+            >&larr; <span>Back to All {data.type}s</span></Link>
         <div>
-            <h1>Vehicle Details</h1>
-            <p>Vehicle ID: {params.id}</p>
+            <div>
+                {data.photos.length > 0 ? (
+                    data.photos.map(photo =>{<img 
+                        src={photo} 
+                        alt={`${data.make} ${data.model}`} 
+                    />})
+                ) : "No photos available"}
+            </div>
+            <h1>{data.make} {data.model}</h1>
+            <p>Type: {data.type}</p>
+            <p>Location: {data.location}</p>
+            <p>${data.pricePerDay}/day</p>
+            <p>{data.description}</p>
         </div>
+        </>
     )
 }
