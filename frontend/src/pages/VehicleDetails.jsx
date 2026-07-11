@@ -1,23 +1,26 @@
 import React from "react"
-import { useParams, Link } from "react-router-dom"
+import { useParams, useLocation, Link } from "react-router-dom"
 import { getVehicle } from "../api/vehicles"
 
 
 export default function VehicleDetails() {
     const params = useParams()
+    const location = useLocation()
 
     const [data, setData] = React.useState(null)
     const [loading, setLoading] = React.useState(true)
     const [error, setError] = React.useState(null)
     const [retryKey, setRetryKey] = React.useState(0)
 
-    React.useEffect(() => {
+    React.useEffect( () => {
         setLoading(true)
         setError(null)
 
         let cancelled = false
 
-        getVehicle(params.id)
+        async function fetchVehicle() {
+
+        await getVehicle(params.id)
             .then(result => {
                 if (cancelled) return
                 setData(result)
@@ -29,7 +32,9 @@ export default function VehicleDetails() {
             .finally(() => {
                 if (cancelled) return
                 setLoading(false)
-            })
+            })  
+        }
+        fetchVehicle()
 
         return () => {
             cancelled = true
@@ -52,7 +57,7 @@ export default function VehicleDetails() {
     return (
         <>
         <Link
-                to=".."
+                to={{ pathname: "..", search: location.state?.search || "" }}
                 relative="path"
             >&larr; <span>Back to All {data.type}s</span></Link>
         <div>

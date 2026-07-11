@@ -21,8 +21,10 @@ export default function VehicleTypes() {
             setError(null)
     
             let cancelled = false
+
+            async function fetchVehicleTypes() {
     
-            getAllVehicleTypes()
+            await getAllVehicleTypes()
                 .then(result => {
                     if (cancelled) return
                     setData(result)
@@ -35,6 +37,8 @@ export default function VehicleTypes() {
                     if (cancelled) return
                     setLoading(false)
                 })
+            }
+            fetchVehicleTypes()
     
             return () => {
                 cancelled = true

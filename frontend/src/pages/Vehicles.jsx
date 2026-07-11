@@ -1,18 +1,18 @@
 import React from 'react'
-import { useSearchParams, useParams, Outlet, Link } from 'react-router-dom'
+import { useSearchParams, useParams, Link } from 'react-router-dom'
 import { getVehicles } from '../api/vehicles'
-import { vehicleType } from './VehicleTypes'
 
 export default function Vehicles() {
 
     //filters = type(default), location, make, minPrice, maxPrice
 
-    // const [searchParams] = useSearchParams()
-    // const type = searchParams.get('type')
-
     const { type } = useParams()
+    const [searchParams, setSearchParams] = useSearchParams()
 
-    // const type = props.type || null
+    const locationFilter = searchParams.get('location') || ''
+    const makeFilter = searchParams.get('make') || ''
+    const minPriceFilter = searchParams.get('minPrice') || ''
+    const maxPriceFilter = searchParams.get('maxPrice') || ''
 
     const [data, setData] = React.useState(null)
     const [loading, setLoading] = React.useState(true)
@@ -25,7 +25,9 @@ export default function Vehicles() {
 
         let cancelled = false
 
-        getVehicles({type})
+        async function fetchVehicles() {
+
+        await getVehicles({type})
             .then(result => {
                 if (cancelled) return
                 setData(result)
@@ -38,11 +40,33 @@ export default function Vehicles() {
                 if (cancelled) return
                 setLoading(false)
             })
+        }
+        fetchVehicles()
 
         return () => {
             cancelled = true
         }
-    }, [retryKey])
+    }, [type, retryKey])
+
+    function handleFilterChange(e) {
+        const { name, value } = e.target
+        const next = new URLSearchParams(searchParams)
+        if (value) {
+            next.set(name, value)
+        } else {
+            next.delete(name)
+        }
+        setSearchParams(next)
+    }
+
+    function handleFilterReset() {
+        const next = new URLSearchParams(searchParams)
+        next.delete('location')
+        next.delete('make')
+        next.delete('minPrice')
+        next.delete('maxPrice')
+        setSearchParams(next)
+    }
 
     if (loading) {
         return <div>Loading vehicles...</div>
@@ -57,8 +81,53 @@ export default function Vehicles() {
         )
     }
 
-    const filteredVehicles = data.map(vehicle => (
-                    <Link to={`/vehicle-types/${type}/${vehicle.id}`} key={vehicle.id}>
+    const filteredVehicles = data.filter(vehicle => {
+        if (locationFilter && vehicle.location.toLowerCase() !== locationFilter.toLowerCase()) return false
+        if (makeFilter && vehicle.make.toLowerCase() !== makeFilter.toLowerCase()) return false
+        if (minPriceFilter && vehicle.pricePerDay < Number(minPriceFilter)) return false
+        if (maxPriceFilter && vehicle.pricePerDay > Number(maxPriceFilter)) return false
+        return true
+    })
+
+    return (
+        <>
+        <Link
+                to=".."
+                relative="path"
+            >&larr; <span>Back to Vehicle Types</span></Link>
+
+        <form onSubmit={e => e.preventDefault()}>
+            <label>
+                Location
+                <input name="location" value={locationFilter} onChange={handleFilterChange} />
+            </label>
+            <label>
+                Make
+                <input name="make" value={makeFilter} onChange={handleFilterChange} />
+            </label>
+            <label>
+                Min Price
+                <input name="minPrice" type="number" value={minPriceFilter} onChange={handleFilterChange} />
+            </label>
+            <label>
+                Max Price
+                <input name="maxPrice" type="number" value={maxPriceFilter} onChange={handleFilterChange} />
+            </label>
+            <button type="button" onClick={handleFilterReset}>Reset Filters</button>
+        </form>
+
+        <div>
+            <h2>Our {type ? `: ${type}` : ''}s</h2>
+
+            {filteredVehicles.length === 0 ? (
+                <div>No vehicles match</div>
+            ) : (
+                filteredVehicles.map(vehicle => (
+                    <Link
+                        to={`/vehicle-types/${type}/${vehicle.id}`}
+                        state={{ search: searchParams.toString() }}
+                        key={vehicle.id}
+                    >
                         <div>
                             <h3>{vehicle.make} {vehicle.model}</h3>
                             <p>Type: {vehicle.type}</p>
@@ -70,25 +139,9 @@ export default function Vehicles() {
                         </div>
                     </Link>
                 ))
-                    
-
-    if (data.length === 0) {
-        return <div>No vehicles match</div>
-    }
-
-    return (
-        <>
-        <Link
-                to=".."
-                relative="path"
-            >&larr; <span>Back to Vehicle Types</span></Link>
-        <div>
-            <h2>Our {type ? `: ${type}` : ''}s</h2>
-            
-                    {filteredVehicles}
-            
+            )}
         </div>
-        
+
         </>
     )
 }
