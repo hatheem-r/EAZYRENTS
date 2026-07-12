@@ -75,7 +75,9 @@ async function flagEndingSoonBookings() {
 }
 
 export function startJobs() {
-    cron.schedule("*/15 * * * *", activateStartedBookings)
-    cron.schedule("*/15 * * * *", completeEndedBookings)
-    cron.schedule("0 * * * *", flagEndingSoonBookings)
+    return [
+        cron.schedule("*/15 * * * *", activateStartedBookings),
+        cron.schedule("*/15 * * * *", completeEndedBookings),
+        cron.schedule("0 * * * *", flagEndingSoonBookings),
+    ]
 }
