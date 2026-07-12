@@ -1,10 +1,19 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext.jsx'
 
 function navLinkClassName({ isActive }) {
   return isActive ? 'nav-link nav-link--active' : 'nav-link'
 }
 
 function Layout() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    logout()
+    navigate('/')
+  }
+
   return (
     <>
       <header className="site-header">
@@ -15,12 +24,36 @@ function Layout() {
           <NavLink to="/vehicles" className={navLinkClassName}>
             Vehicles
           </NavLink>
-          <NavLink to="/login" className={navLinkClassName}>
-            Login
-          </NavLink>
-          <NavLink to="/register" className={navLinkClassName}>
-            Register
-          </NavLink>
+
+          {user ? (
+            <>
+              {user.role === 'renter' && (
+                <NavLink to="/my-bookings" className={navLinkClassName}>
+                  My bookings
+                </NavLink>
+              )}
+              {user.role === 'host' && (
+                <NavLink to="/host" className={navLinkClassName}>
+                  Host dashboard
+                </NavLink>
+              )}
+              <span className="user-badge">
+                {user.name} ({user.role})
+              </span>
+              <button type="button" className="logout-button" onClick={handleLogout}>
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink to="/login" className={navLinkClassName}>
+                Login
+              </NavLink>
+              <NavLink to="/register" className={navLinkClassName}>
+                Register
+              </NavLink>
+            </>
+          )}
         </nav>
       </header>
 
