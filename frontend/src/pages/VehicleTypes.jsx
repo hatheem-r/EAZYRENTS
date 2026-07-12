@@ -1,11 +1,6 @@
 import React from "react"
 import { Link } from "react-router-dom"
-import { getAllVehicleTypes} from '../api/vehicles'
-import Vehicles from './Vehicles'
-
-
-const vehicleType = React.createContext()
-
+import { getAllVehicleTypes, subscribeToVehicles } from '../api/vehicles'
 
 export default function VehicleTypes() {
 
@@ -14,38 +9,48 @@ export default function VehicleTypes() {
     const [error, setError] = React.useState(null)
     const [retryKey, setRetryKey] = React.useState(0)
 
-    const [type, setType] = React.useState(null)
+    React.useEffect(() => {
+        setLoading(true)
+        setError(null)
+
+        let cancelled = false
+
+        async function fetchVehicleTypes() {
+
+        await getAllVehicleTypes()
+            .then(result => {
+                if (cancelled) return
+                setData(result.data)
+
+                if(result.error){
+                    throw result.error
+                }
+            })
+            .catch(err => {
+                if (cancelled) return
+                setError(err)
+            })
+            .finally(() => {
+                if (cancelled) return
+                setLoading(false)
+            })
+        }
+        fetchVehicleTypes()
+
+        return () => {
+            cancelled = true
+        }
+    }, [retryKey])
 
     React.useEffect(() => {
-            setLoading(true)
-            setError(null)
-    
-            let cancelled = false
+        const unsubscribe = subscribeToVehicles(vehicles => {
+            setData([...new Set(vehicles.map(vehicle => vehicle.type).filter(Boolean))])
+        })
 
-            async function fetchVehicleTypes() {
-    
-            await getAllVehicleTypes()
-                .then(result => {
-                    if (cancelled) return
-                    setData(result)
-                })
-                .catch(err => {
-                    if (cancelled) return
-                    setError(err)
-                })
-                .finally(() => {
-                    if (cancelled) return
-                    setLoading(false)
-                })
-            }
-            fetchVehicleTypes()
-    
-            return () => {
-                cancelled = true
-            }
-        }, [retryKey])
+        return unsubscribe
+    }, [])
 
-        if (loading) {
+    if (loading) {
         return <div>Loading vehicles...</div>
     }
 
@@ -68,19 +73,10 @@ export default function VehicleTypes() {
         </Link>
     ))
 
-    return type ? <Vehicles type={type} /> : (
-
-        <vehicleType.Provider value={type}>
-
-
+    return (
         <div>
             <h2>Our Vehicles Types</h2>
             {vehicleTypesList}
         </div>
-
-        </vehicleType.Provider>
-    ) 
-
+    )
 }
-
-export {vehicleType}

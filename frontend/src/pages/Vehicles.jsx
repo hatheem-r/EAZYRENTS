@@ -1,6 +1,6 @@
 import React from 'react'
 import { useSearchParams, useParams, Link } from 'react-router-dom'
-import { getVehicles } from '../api/vehicles'
+import { getVehicles, subscribeToVehicles } from '../api/vehicles'
 
 export default function Vehicles() {
 
@@ -30,7 +30,11 @@ export default function Vehicles() {
         await getVehicles({type})
             .then(result => {
                 if (cancelled) return
-                setData(result)
+                    setData(result.data)
+
+                if(result.error){
+                    throw result.error
+                }
             })
             .catch(err => {
                 if (cancelled) return
@@ -47,6 +51,17 @@ export default function Vehicles() {
             cancelled = true
         }
     }, [type, retryKey])
+
+    React.useEffect(() => {
+        const unsubscribe = subscribeToVehicles(vehicles => {
+            const filtered = type
+                ? vehicles.filter(vehicle => vehicle.type?.toLowerCase() === type.toLowerCase())
+                : vehicles
+            setData(filtered)
+        })
+
+        return unsubscribe
+    }, [type])
 
     function handleFilterChange(e) {
         const { name, value } = e.target

@@ -1,6 +1,6 @@
 import React from "react"
 import { useParams, useLocation, Link } from "react-router-dom"
-import { getVehicle } from "../api/vehicles"
+import { getVehicle, subscribeToVehicles } from "../api/vehicles"
 
 
 export default function VehicleDetails() {
@@ -23,7 +23,11 @@ export default function VehicleDetails() {
         await getVehicle(params.id)
             .then(result => {
                 if (cancelled) return
-                setData(result)
+                    setData(result.data)
+
+                if(result.error){
+                    throw result.error
+                }
             })
             .catch(err => {
                 if (cancelled) return
@@ -40,6 +44,15 @@ export default function VehicleDetails() {
             cancelled = true
         }
     }, [params.id, retryKey])
+
+    React.useEffect(() => {
+        const unsubscribe = subscribeToVehicles(vehicles => {
+            const vehicle = vehicles.find(v => String(v.id) === String(params.id)) || null
+            setData(vehicle)
+        })
+
+        return unsubscribe
+    }, [params.id])
 
     if (loading) {
         return <div>Loading vehicle {params.id}...</div>
@@ -62,11 +75,8 @@ export default function VehicleDetails() {
             >&larr; <span>Back to All {data.type}s</span></Link>
         <div>
             <div>
-                {data.photos.length > 0 ? (
-                    data.photos.map(photo =>{<img 
-                        src={photo} 
-                        alt={`${data.make} ${data.model}`} 
-                    />})
+                {data.photos ? (
+                    <img src={data.photos} alt={`${data.make} ${data.model}`} />
                 ) : "No photos available"}
             </div>
             <h1>{data.make} {data.model}</h1>
