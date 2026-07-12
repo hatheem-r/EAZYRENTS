@@ -6,8 +6,11 @@ import rateLimit from "express-rate-limit"
 import { query } from "./db/index.js"
 import authRoutes from "./routes/auth.routes.js"
 import vehicleRoutes from "./routes/vehicle.routes.js"
+import bookingRoutes from "./routes/booking.routes.js"
+import hostRoutes from "./routes/host.routes.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 import { requireAuth, requireRole } from "./middleware/auth.js"
+import { startJobs } from "./jobs/bookingLifecycle.js"
 
 const app = express()
 
@@ -36,6 +39,8 @@ app.get("/healthz", async (req, res) => {
 
 app.use("/auth", authRateLimiter, authRoutes)
 app.use("/vehicles", vehicleRoutes)
+app.use("/bookings", bookingRoutes)
+app.use("/host", hostRoutes)
 
 // TODO: remove these test routes once requireAuth/requireRole are exercised elsewhere
 app.get("/me", requireAuth, (req, res) => {
@@ -51,4 +56,5 @@ app.use(errorHandler)
 
 app.listen(process.env.PORT, () => {
     console.log(`🚀 listening on ${process.env.PORT}`)
+    startJobs()
 })
