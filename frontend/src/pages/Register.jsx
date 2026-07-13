@@ -180,6 +180,13 @@ function Register() {
           {submitting ? 'Creating account...' : 'Create account'}
         </button>
       </form>
+
+      <div>Already have an account?
+        <a href="/login"> Log in here</a>
+      </div>
+    
+  
+
     </section>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../api/client.js'
 
@@ -138,6 +138,11 @@ function Login() {
           {submitting ? 'Logging in...' : 'Log in'}
         </button>
       </form>
+
+      <div>Do not have an Account ?  
+        <Link to="/register"> Register here</Link>
+      </div>
+
     </section>
   )
 }

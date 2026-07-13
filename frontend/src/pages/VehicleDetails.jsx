@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { useParams, useLocation, Link } from 'react-router-dom'
+import { useRef, useState } from 'react'
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import { subDays, differenceInCalendarDays, isBefore, isWithinInterval, startOfToday, eachDayOfInterval } from 'date-fns'
 import { useApi } from '../hooks/useApi.js'
 import { getVehicle } from '../api/vehicles.js'
+import { createBooking } from '../api/bookings.js'
+import { ApiError } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 
 function buildDisabledMatchers(unavailableDates) {
@@ -18,6 +20,16 @@ function buildDisabledMatchers(unavailableDates) {
   }))
 
   return [pastDays, ...bookedRanges]
+}
+
+// The backend requires full ISO 8601 datetimes with a literal "Z" (zod's
+// z.string().datetime() rejects a bare offset like "+00:00"). DayPicker gives
+// us Date objects anchored to the calendar day in the browser's local
+// timezone, so re-anchor to UTC midnight before serializing — otherwise
+// toISOString() could shift the selected day backward/forward for guests
+// west/east of UTC.
+function toUtcMidnightIso(date) {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString()
 }
 
 function rangeOverlapsDisabled(range, disabledMatchers) {
@@ -35,9 +47,17 @@ function rangeOverlapsDisabled(range, disabledMatchers) {
 function VehicleDetails() {
   const { id } = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { data: vehicle, loading, error, refetch } = useApi(() => getVehicle(id), [id])
   const [range, setRange] = useState({ from: undefined, to: undefined })
+  const [submitting, setSubmitting] = useState(false)
+  const [bookingError, setBookingError] = useState('')
+
+  // One key per booking attempt; retries/double-clicks replay the same
+  // booking. React StrictMode double-mount in dev creates a fresh ref per
+  // mount — fine, since no request fires on mount.
+  const idemKey = useRef(crypto.randomUUID())
 
   if (loading) {
     return (
@@ -70,6 +90,8 @@ function VehicleDetails() {
   const disabledMatchers = buildDisabledMatchers(vehicle.unavailable_dates)
 
   function handleSelect(nextRange) {
+    setBookingError('')
+
     // excludeDisabled already prevents extending a range through a disabled
     // day, but double-check here in case a range still slips through.
     if (nextRange && rangeOverlapsDisabled(nextRange, disabledMatchers)) {
@@ -77,6 +99,44 @@ function VehicleDetails() {
       return
     }
     setRange(nextRange ?? { from: undefined, to: undefined })
+  }
+
+  async function handleBook() {
+    setBookingError('')
+    setSubmitting(true)
+
+    try {
+      const booking = await createBooking(
+        {
+          vehicleId: vehicle.id,
+          startDate: toUtcMidnightIso(range.from),
+          endDate: toUtcMidnightIso(range.to),
+        },
+        idemKey.current,
+      )
+      navigate('/my-bookings', { state: { justBooked: booking.id } })
+    } catch (err) {
+      if (!(err instanceof ApiError)) {
+        setBookingError('Something went wrong. Please try again.')
+      } else if (err.status === 401) {
+        // handled globally via the auth:expired listener — AuthContext
+        // clears the session and this page re-renders logged-out.
+      } else if (err.status === 409) {
+        setBookingError(err.message)
+        refetch()
+        setRange({ from: undefined, to: undefined })
+        // a rejected attempt is a new attempt next time
+        idemKey.current = crypto.randomUUID()
+      } else if (err.status === 403) {
+        setBookingError('Hosts cannot book vehicles')
+      } else if (err.status === 400) {
+        setBookingError(err.message)
+      } else {
+        setBookingError('Something went wrong. Please try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const hasCompleteRange = Boolean(range.from && range.to)
@@ -122,20 +182,31 @@ function VehicleDetails() {
       </section>
 
       <section className="booking-summary">
+        {bookingError && (
+          <p className="form-error" role="alert">
+            {bookingError}
+          </p>
+        )}
+
         {hasCompleteRange && (
           <>
             <p>
-              {nights} days × LKR {pricePerDay} = LKR {total}
+              {nights > 0 ? (`${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last Date.`): 'Select more than two days, So you will have your vehicle for atleast one night.'}
             </p>
-            {user ? (
-              <button type="button" disabled title="coming in next step">
-                Book these dates
-              </button>
-            ) : (
+
+            {!user && (
               <Link to="/login" state={{ from: location }}>
                 Log in to book
               </Link>
             )}
+
+            {user?.role === 'renter' && (
+              <button type="button" onClick={handleBook} disabled={submitting}>
+                {submitting ? 'Booking…' : 'Book these dates'}
+              </button>
+            )}
+
+            {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>}
           </>
         )}
       </section>

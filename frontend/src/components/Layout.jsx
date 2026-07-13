@@ -49,9 +49,9 @@ function Layout() {
               <NavLink to="/login" className={navLinkClassName}>
                 Login
               </NavLink>
-              <NavLink to="/register" className={navLinkClassName}>
+              {/* <NavLink to="/register" className={navLinkClassName}>
                 Register
-              </NavLink>
+              </NavLink> */}
             </>
           )}
         </nav>
