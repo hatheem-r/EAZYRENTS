@@ -68,3 +68,6 @@ Thumbs.db
 
 # dotenv environment variables file
 .env*.local
+
+# Locally-stored uploaded files
+backend/uploads/

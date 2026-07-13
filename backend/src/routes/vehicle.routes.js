@@ -2,6 +2,7 @@ import { Router } from "express"
 import { z } from "zod"
 import { validate, validateQuery, validateParams } from "../middleware/validate.js"
 import { requireAuth, requireRole } from "../middleware/auth.js"
+import { uploadPhotos, verifyImageContent } from "../middleware/upload.js"
 import * as vehicleController from "../controllers/vehicle.controller.js"
 
 const VEHICLE_TYPES = ["car", "van", "suv", "bike", "scooter"]
@@ -58,11 +59,16 @@ const updateVehicleSchema = z
         price_per_day: z.number().positive().optional(),
         city: z.string().min(1).optional(),
         description: z.string().optional(),
-        photos: z.array(z.string()).optional(),
+        // "photos" is deliberately not accepted here — photo array changes only
+        // happen through POST/DELETE /:id/photos, which manage on-disk files too.
     })
     .refine((data) => Object.keys(data).length > 0, {
         message: "request body must include at least one field",
     })
+
+const deletePhotoSchema = z.object({
+    url: z.string().startsWith("/uploads/"),
+})
 
 const router = Router()
 
@@ -90,6 +96,24 @@ router.delete(
     requireRole("host"),
     validateParams(blockParamsSchema),
     vehicleController.deleteBlock
+)
+
+router.post(
+    "/:id/photos",
+    requireAuth,
+    requireRole("host"),
+    validateParams(idParamSchema),
+    uploadPhotos,
+    verifyImageContent,
+    vehicleController.uploadPhotos
+)
+router.delete(
+    "/:id/photos",
+    requireAuth,
+    requireRole("host"),
+    validateParams(idParamSchema),
+    validate(deletePhotoSchema),
+    vehicleController.deletePhoto
 )
 
 router.get("/:id", validateParams(idParamSchema), vehicleController.getById)

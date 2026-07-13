@@ -4,10 +4,12 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import { format } from 'date-fns'
 import { useApi } from '../../hooks/useApi.js'
+import { usePageTitle } from '../../hooks/usePageTitle.js'
 import { getVehicle } from '../../api/vehicles.js'
 import { listVehicleBlocks, createBlock, deleteBlock } from '../../api/host.js'
 import { ApiError } from '../../api/client.js'
 import { buildDisabledMatchers, rangeOverlapsDisabled, toUtcMidnightIso } from '../../lib/availability.js'
+import Skeleton from '../../components/Skeleton.jsx'
 
 function formatDateRange(startDate, endDate) {
   // checkout day is shown to users; the exclusive-end adjustment is only for
@@ -27,6 +29,8 @@ function VehicleBlocks() {
   const [submitting, setSubmitting] = useState(false)
   const [blockError, setBlockError] = useState(null)
   const [listError, setListError] = useState('')
+
+  usePageTitle(vehicleApi.data ? `Blocked dates — ${vehicleApi.data.make} ${vehicleApi.data.model}` : 'Blocked dates')
 
   const loading = vehicleApi.loading || blocksApi.loading
   const error = vehicleApi.error || blocksApi.error
@@ -99,18 +103,19 @@ function VehicleBlocks() {
   return (
     <section className="vehicle-blocks">
       <nav className="breadcrumb">
-        <Link to="/host">Host dashboard</Link>
+        <Link to="/host">My vehicles</Link>
+        {!loading && !error && (
+          <span>
+            {vehicleApi.data.make} {vehicleApi.data.model}
+          </span>
+        )}
       </nav>
 
-      {loading && (
-        <p className="loading" role="status">
-          Loading…
-        </p>
-      )}
+      {loading && <Skeleton />}
 
       {!loading && error && error.status === 404 && (
         <section className="error-panel">
-          <p>{error.message}</p>
+          <p>Vehicle not found</p>
           <Link to="/host">Back to host dashboard</Link>
         </section>
       )}
@@ -145,7 +150,11 @@ function VehicleBlocks() {
                   <li key={block.id} className="block-card">
                     <p>{formatDateRange(block.start_date, block.end_date)}</p>
                     {block.reason && <p className="block-card__reason">{block.reason}</p>}
-                    <button type="button" onClick={() => handleDeleteBlock(block.id)}>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBlock(block.id)}
+                      aria-label={`Delete block ${formatDateRange(block.start_date, block.end_date)}`}
+                    >
                       Delete
                     </button>
                   </li>

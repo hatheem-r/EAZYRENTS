@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { format, addDays } from 'date-fns'
 import { useApi } from '../hooks/useApi.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { listMyBookings, cancelBooking, requestExtension } from '../api/bookings.js'
 import { ApiError } from '../api/client.js'
+import Skeleton from '../components/Skeleton.jsx'
 
 const CANCELLABLE_STATUSES = ['pending', 'confirmed']
 const REMAINING_STATUSES = ['confirmed', 'active']
@@ -32,6 +34,8 @@ function MyBookings() {
   // status on /bookings/mine — TODO candidate: include pending extensions
   // in /bookings/mine so this survives a refresh.
   const [pendingExtensionIds, setPendingExtensionIds] = useState(() => new Set())
+
+  usePageTitle('My bookings')
 
   async function handleCancel(id) {
     if (!window.confirm('Cancel this booking?')) return
@@ -117,11 +121,7 @@ function MyBookings() {
         </p>
       )}
 
-      {loading && (
-        <p className="loading" role="status">
-          Loading bookings…
-        </p>
-      )}
+      {loading && <Skeleton variant="card" count={3} />}
 
       {!loading && error && (
         <section className="error-panel" role="alert">
@@ -187,6 +187,7 @@ function MyBookings() {
                       type="button"
                       onClick={() => handleCancel(booking.id)}
                       disabled={cancellingId === booking.id}
+                      aria-label={`Cancel booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
                     >
                       {cancellingId === booking.id ? 'Cancelling…' : 'Cancel'}
                     </button>
@@ -200,7 +201,11 @@ function MyBookings() {
                     ) : (
                       <>
                         {extendingId !== booking.id && (
-                          <button type="button" onClick={() => openExtendForm(booking.id)}>
+                          <button
+                            type="button"
+                            onClick={() => openExtendForm(booking.id)}
+                            aria-label={`Extend booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
+                          >
                             Extend
                           </button>
                         )}
@@ -238,7 +243,7 @@ function MyBookings() {
                                 ? 'Requesting…'
                                 : 'Request extension'}
                             </button>
-                            <button type="button" onClick={closeExtendForm}>
+                            <button type="button" onClick={closeExtendForm} aria-label="Cancel extension request">
                               Cancel
                             </button>
                           </form>

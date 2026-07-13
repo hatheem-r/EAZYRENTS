@@ -1,8 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { useApi } from '../hooks/useApi.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { listVehicles } from '../api/vehicles.js'
 import FilterBar from '../components/FilterBar.jsx'
 import VehicleCard from '../components/VehicleCard.jsx'
+import Skeleton from '../components/Skeleton.jsx'
 
 function pluralizeType(type) {
   return `${type.charAt(0).toUpperCase()}${type.slice(1)}s`
@@ -24,6 +26,8 @@ function Vehicles() {
     () => listVehicles(filters),
     [searchParams],
   )
+
+  usePageTitle(activeType ? pluralizeType(activeType) : 'All vehicles')
 
   const page = Number(searchParams.get('page')) || 1
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0
@@ -53,11 +57,7 @@ function Vehicles() {
 
       <FilterBar />
 
-      {loading && (
-        <p className="loading" role="status">
-          Loading vehicles…
-        </p>
-      )}
+      {loading && <Skeleton variant="card" count={6} />}
 
       {!loading && error && (
         <section className="error-panel" role="alert">

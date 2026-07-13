@@ -14,6 +14,7 @@ import { errorHandler } from "./middleware/errorHandler.js"
 import { requireAuth, requireRole } from "./middleware/auth.js"
 import { startJobs } from "./jobs/bookingLifecycle.js"
 import logger from "./logger.js"
+import { UPLOADS_DIR } from "./storage/localStorage.js"
 
 const app = express()
 
@@ -40,6 +41,16 @@ app.get("/healthz", async (req, res) => {
         res.status(503).json({ status: "degraded", db: "down" })
     }
 })
+
+// image URLs are not secrets; public like any website asset. helmet()'s
+// default Cross-Origin-Resource-Policy is "same-origin", which blocks the
+// frontend (a different origin/port) from loading these in <img> tags —
+// relax it just for this route rather than globally.
+app.use(
+    "/uploads",
+    helmet.crossOriginResourcePolicy({ policy: "cross-origin" }),
+    express.static(UPLOADS_DIR, { fallthrough: false })
+)
 
 app.use("/auth", authRateLimiter, authRoutes)
 app.use("/vehicles", vehicleRoutes)

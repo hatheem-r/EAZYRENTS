@@ -1,5 +1,7 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import { useApi } from '../hooks/useApi.js'
+import { listExtensionRequests } from '../api/host.js'
 
 function navLinkClassName({ isActive }) {
   return isActive ? 'nav-link nav-link--active' : 'nav-link'
@@ -9,6 +11,15 @@ function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
+  // lightweight badge; acceptable duplicate fetch (HostExtensions fetches
+  // this same list again) — candidate for a shared context or a count
+  // endpoint later.
+  const extensionsApi = useApi(
+    () => (user?.role === 'host' ? listExtensionRequests() : Promise.resolve({ extensions: [] })),
+    [user?.role],
+  )
+  const pendingExtensionCount = extensionsApi.data?.extensions.length ?? 0
+
   function handleLogout() {
     logout()
     navigate('/')
@@ -17,26 +28,41 @@ function Layout() {
   return (
     <>
       <header className="site-header">
-        <nav className="site-nav">
-          <NavLink to="/" end className={navLinkClassName}>
-            Home
-          </NavLink>
-          <NavLink to="/vehicles/types" className={navLinkClassName}>
-            Vehicles
-          </NavLink>
+        <Link to="/" className="site-brand">
+          EazyRents
+        </Link>
 
-          {user ? (
+        <nav className="site-nav" aria-label="Main">
+          {user?.role === 'host' ? (
             <>
-              {user.role === 'renter' && (
+              <NavLink to="/host" end className={navLinkClassName}>
+                My vehicles
+              </NavLink>
+              <NavLink to="/host/bookings" className={navLinkClassName}>
+                Bookings
+              </NavLink>
+              <NavLink to="/host/extensions" className={navLinkClassName}>
+                Extension requests{pendingExtensionCount > 0 ? ` (${pendingExtensionCount})` : ''}
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink to="/" end className={navLinkClassName}>
+                Home
+              </NavLink>
+              <NavLink to="/vehicles/types" className={navLinkClassName}>
+                Vehicles
+              </NavLink>
+              {user?.role === 'renter' && (
                 <NavLink to="/my-bookings" className={navLinkClassName}>
                   My bookings
                 </NavLink>
               )}
-              {user.role === 'host' && (
-                <NavLink to="/host" className={navLinkClassName}>
-                  Host dashboard
-                </NavLink>
-              )}
+            </>
+          )}
+
+          {user ? (
+            <>
               <span className="user-badge">
                 {user.name} ({user.role})
               </span>

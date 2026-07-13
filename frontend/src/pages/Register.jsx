@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../api/client.js'
+import { resolvePostAuthDestination } from '../lib/authRedirect.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -39,10 +41,13 @@ function mapValidationDetails(details) {
 function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
 
   // role comes from the URL, sanitized; the backend's zod enum is the real gate.
   const role = searchParams.get('role') === 'host' ? 'host' : 'renter'
+
+  usePageTitle(role === 'host' ? 'Register as a host' : 'Create your account')
 
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [fieldErrors, setFieldErrors] = useState({})
@@ -68,8 +73,11 @@ function Register() {
     setSubmitting(true)
 
     try {
-      await register({ ...form, role })
-      navigate('/')
+      // register() returns the freshly-authenticated user directly — use
+      // that for the redirect decision rather than reading useAuth() state
+      // here, which may not have updated yet.
+      const registeredUser = await register({ ...form, role })
+      navigate(resolvePostAuthDestination(registeredUser, location.state?.from), { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setFieldErrors({ email: 'email already registered' })

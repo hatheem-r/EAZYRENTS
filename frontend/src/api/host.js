@@ -1,4 +1,4 @@
-import { get, post, patch, del } from './client.js'
+import { get, post, patch, del, uploadFiles } from './client.js'
 
 export function listHostVehicles() {
   return get('/host/vehicles')
@@ -18,6 +18,18 @@ export function updateVehicle(id, data) {
 
 export function removeVehicle(id) {
   return del(`/vehicles/${id}`)
+}
+
+export function uploadVehiclePhotos(vehicleId, fileList) {
+  const formData = new FormData()
+  for (const file of fileList) {
+    formData.append('photos', file)
+  }
+  return uploadFiles(`/vehicles/${vehicleId}/photos`, formData)
+}
+
+export function deleteVehiclePhoto(vehicleId, url) {
+  return del(`/vehicles/${vehicleId}/photos`, { body: { url } })
 }
 
 export function listVehicleBlocks(vehicleId) {

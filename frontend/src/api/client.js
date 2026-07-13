@@ -35,6 +35,25 @@ async function parseJsonSafely(response) {
   }
 }
 
+async function handleResponse(response) {
+  const data = await parseJsonSafely(response)
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearToken()
+      window.dispatchEvent(new CustomEvent('auth:expired'))
+    }
+
+    throw new ApiError({
+      status: response.status,
+      message: data?.error?.message ?? 'Something went wrong. Please try again.',
+      details: data?.error?.details,
+    })
+  }
+
+  return data
+}
+
 export async function apiFetch(path, { method = 'GET', body, headers, idempotencyKey } = {}) {
   const requestHeaders = { ...headers }
 
@@ -57,22 +76,27 @@ export async function apiFetch(path, { method = 'GET', body, headers, idempotenc
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
 
-  const data = await parseJsonSafely(response)
+  return handleResponse(response)
+}
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      clearToken()
-      window.dispatchEvent(new CustomEvent('auth:expired'))
-    }
+export async function uploadFiles(path, formData) {
+  const requestHeaders = {}
 
-    throw new ApiError({
-      status: response.status,
-      message: data?.error?.message ?? 'Something went wrong. Please try again.',
-      details: data?.error?.details,
-    })
+  // The browser must set the multipart boundary itself when sending
+  // FormData — setting Content-Type manually here is the classic multipart
+  // bug (it strips the boundary and the server can no longer parse the body).
+  const token = getToken()
+  if (token) {
+    requestHeaders['Authorization'] = `Bearer ${token}`
   }
 
-  return data
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: requestHeaders,
+    body: formData,
+  })
+
+  return handleResponse(response)
 }
 
 export function get(path, opts) {

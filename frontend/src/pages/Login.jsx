@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../api/client.js'
+import { resolvePostAuthDestination } from '../lib/authRedirect.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -42,6 +44,8 @@ function Login() {
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  usePageTitle('Log in')
+
   function handleChange(event) {
     const { name, value } = event.target
     setForm((prev) => ({ ...prev, [name]: value }))
@@ -61,8 +65,11 @@ function Login() {
     setSubmitting(true)
 
     try {
-      await login(form)
-      navigate(location.state?.from ?? '/', { replace: true })
+      // login() returns the freshly-authenticated user directly — use that
+      // for the redirect decision rather than reading useAuth() state here,
+      // which may not have updated yet.
+      const loggedInUser = await login(form)
+      navigate(resolvePostAuthDestination(loggedInUser, location.state?.from), { replace: true })
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setFormError('Invalid email or password')

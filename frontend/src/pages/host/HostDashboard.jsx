@@ -2,18 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useApi } from '../../hooks/useApi.js'
-import {
-  listHostVehicles,
-  listHostBookings,
-  createVehicle,
-  updateVehicle,
-  removeVehicle,
-  listExtensionRequests,
-  approveExtension,
-  rejectExtension,
-} from '../../api/host.js'
+import { usePageTitle } from '../../hooks/usePageTitle.js'
+import { listHostVehicles, listHostBookings, createVehicle, updateVehicle, removeVehicle } from '../../api/host.js'
 import { ApiError } from '../../api/client.js'
 import VehicleForm from '../../components/host/VehicleForm.jsx'
+import PhotoManager from '../../components/host/PhotoManager.jsx'
+import Skeleton from '../../components/Skeleton.jsx'
 
 const ACTIVE_STATUSES = ['active', 'confirmed']
 
@@ -46,13 +40,12 @@ function findNextUpcoming(bookings, vehicleId, now) {
 function HostDashboard() {
   const vehiclesApi = useApi(() => listHostVehicles(), [])
   const bookingsApi = useApi(() => listHostBookings(), [])
-  const extensionsApi = useApi(() => listExtensionRequests(), [])
   const [addFormOpen, setAddFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [dashboardError, setDashboardError] = useState('')
   const [dashboardNotice, setDashboardNotice] = useState('')
-  const [submittingExtensionId, setSubmittingExtensionId] = useState(null)
-  const [extensionCardErrors, setExtensionCardErrors] = useState({})
+
+  usePageTitle('My vehicles')
 
   const loading = vehiclesApi.loading || bookingsApi.loading
   const error = vehiclesApi.error || bookingsApi.error
@@ -98,39 +91,14 @@ function HostDashboard() {
       // counts may have changed — resync everything the removal could affect.
       vehiclesApi.refetch()
       bookingsApi.refetch()
-      extensionsApi.refetch()
     } catch (err) {
       setDashboardError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.')
     }
   }
 
-  async function handleExtensionAction(id, apiCall) {
-    setSubmittingExtensionId(id)
-    setExtensionCardErrors((prev) => ({ ...prev, [id]: '' }))
-
-    try {
-      await apiCall(id)
-      extensionsApi.refetch()
-      bookingsApi.refetch()
-    } catch (err) {
-      // A conflict leaves the request pending server-side; the UI must
-      // reflect that, not remove it. Refetching handles both cases: the
-      // card stays (with this message) if still pending, or disappears if
-      // the request was stale (already handled / 404).
-      setExtensionCardErrors((prev) => ({
-        ...prev,
-        [id]: err instanceof ApiError ? err.message : 'Something went wrong. Please try again.',
-      }))
-      extensionsApi.refetch()
-      bookingsApi.refetch()
-    } finally {
-      setSubmittingExtensionId(null)
-    }
-  }
-
   return (
     <section className="host-dashboard">
-      <h1 className="host-dashboard__heading">Host dashboard</h1>
+      <h1 className="host-dashboard__heading">My vehicles</h1>
 
       {dashboardError && (
         <p className="form-error" role="alert">
@@ -144,75 +112,13 @@ function HostDashboard() {
         </p>
       )}
 
-      <section className="extension-inbox">
-        <h2>Extension requests</h2>
-
-        {extensionsApi.loading && (
-          <p className="loading" role="status">
-            Loading extension requests…
-          </p>
-        )}
-
-        {!extensionsApi.loading && extensionsApi.error && (
-          <section className="error-panel" role="alert">
-            <p>{extensionsApi.error.message}</p>
-            <button type="button" onClick={extensionsApi.refetch}>
-              Retry
-            </button>
-          </section>
-        )}
-
-        {!extensionsApi.loading && !extensionsApi.error && extensionsApi.data.extensions.length === 0 && (
-          <p className="empty-state">No pending requests</p>
-        )}
-
-        {!extensionsApi.loading && !extensionsApi.error && extensionsApi.data.extensions.length > 0 && (
-          <ul className="extension-list">
-            {extensionsApi.data.extensions.map((request) => (
-              <li key={request.id} className="extension-card">
-                <p>
-                  {request.renter_name} requests {request.make} {request.model} until{' '}
-                  {format(new Date(request.requested_end), 'MMM d, yyyy')} (currently until{' '}
-                  {format(new Date(request.end_date), 'MMM d, yyyy')})
-                </p>
-
-                {extensionCardErrors[request.id] && (
-                  <p className="form-error" role="alert">
-                    {extensionCardErrors[request.id]}
-                  </p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => handleExtensionAction(request.id, approveExtension)}
-                  disabled={submittingExtensionId === request.id}
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExtensionAction(request.id, rejectExtension)}
-                  disabled={submittingExtensionId === request.id}
-                >
-                  Reject
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
       <button type="button" onClick={() => setAddFormOpen((open) => !open)}>
         {addFormOpen ? 'Cancel' : '+ Add vehicle'}
       </button>
 
       {addFormOpen && <VehicleForm onSubmit={handleCreate} onCancel={() => setAddFormOpen(false)} />}
 
-      {loading && (
-        <p className="loading" role="status">
-          Loading dashboard…
-        </p>
-      )}
+      {loading && <Skeleton variant="card" count={3} />}
 
       {!loading && error && (
         <section className="error-panel" role="alert">
@@ -271,14 +177,29 @@ function HostDashboard() {
                       )}
 
                       <div className="host-vehicle-card__actions">
-                        <button type="button" onClick={() => setEditingId(vehicle.id)}>
+                        <button
+                          type="button"
+                          onClick={() => setEditingId(vehicle.id)}
+                          aria-label={`Edit ${vehicle.make} ${vehicle.model}`}
+                        >
                           Edit
                         </button>
-                        <button type="button" onClick={() => handleRemove(vehicle.id)}>
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(vehicle.id)}
+                          aria-label={`Remove ${vehicle.make} ${vehicle.model}`}
+                        >
                           Remove
                         </button>
-                        <Link to={`/host/vehicles/${vehicle.id}/blocks`}>Manage blocks</Link>
+                        <Link
+                          to={`/host/vehicles/${vehicle.id}/blocks`}
+                          aria-label={`Manage blocks for ${vehicle.make} ${vehicle.model}`}
+                        >
+                          Manage blocks
+                        </Link>
                       </div>
+
+                      <PhotoManager vehicle={vehicle} onChanged={vehiclesApi.refetch} />
                     </>
                   )}
                 </article>

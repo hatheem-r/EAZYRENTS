@@ -4,11 +4,14 @@ import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
 import { differenceInCalendarDays } from 'date-fns'
 import { useApi } from '../hooks/useApi.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { getVehicle } from '../api/vehicles.js'
 import { createBooking } from '../api/bookings.js'
 import { ApiError } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { buildDisabledMatchers, rangeOverlapsDisabled, toUtcMidnightIso } from '../lib/availability.js'
+import Skeleton from '../components/Skeleton.jsx'
+import { photoUrl } from '../utils/imageUrl.js'
 
 function VehicleDetails() {
   const { id } = useParams()
@@ -25,12 +28,10 @@ function VehicleDetails() {
   // mount — fine, since no request fires on mount.
   const idemKey = useRef(crypto.randomUUID())
 
+  usePageTitle(vehicle ? `${vehicle.make} ${vehicle.model}` : 'Vehicle details')
+
   if (loading) {
-    return (
-      <p className="loading" role="status">
-        Loading vehicle…
-      </p>
-    )
+    return <Skeleton />
   }
 
   if (error) {
@@ -124,16 +125,18 @@ function VehicleDetails() {
         <span className="vehicle-details__city">{vehicle.city}</span>
       </header>
 
-      {vehicle.photos?.length > 0 && (
+      {vehicle.photos?.length > 0 ? (
         <ul className="vehicle-details__photos">
           {vehicle.photos.map((photo) => (
             <li key={photo}>
               <figure>
-                <img src={photo} alt={`${vehicle.make} ${vehicle.model}`} />
+                <img src={photoUrl(photo)} alt={`${vehicle.make} ${vehicle.model}`} />
               </figure>
             </li>
           ))}
         </ul>
+      ) : (
+        <p className="no-photos">No photos yet</p>
       )}
 
       {vehicle.description && <p className="vehicle-details__description">{vehicle.description}</p>}

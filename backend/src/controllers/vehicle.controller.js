@@ -54,6 +54,24 @@ export async function deleteBlock(req, res, next) {
     }
 }
 
+export async function uploadPhotos(req, res, next) {
+    try {
+        const photos = await vehicleService.addVehiclePhotos(req.user.id, req.params.id, req.files)
+        res.status(201).json({ photos })
+    } catch (err) {
+        next(err)
+    }
+}
+
+export async function deletePhoto(req, res, next) {
+    try {
+        const photos = await vehicleService.removeVehiclePhoto(req.user.id, req.params.id, req.body.url)
+        res.status(200).json({ photos })
+    } catch (err) {
+        next(err)
+    }
+}
+
 export async function getById(req, res, next) {
     try {
         const vehicle = await vehicleService.getVehicleById(req.params.id)

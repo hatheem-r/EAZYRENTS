@@ -1,10 +1,15 @@
 import { query, pool } from "../db/index.js"
 import { HttpError } from "../utils/httpError.js"
+import * as storage from "../storage/localStorage.js"
+import logger from "../logger.js"
 
 const DEFAULT_LIMIT = 12
 const MAX_LIMIT = 50
 const DEFAULT_PAGE = 1
-const UPDATABLE_FIELDS = ["type", "make", "model", "price_per_day", "city", "description", "photos"]
+const MAX_PHOTOS_PER_VEHICLE = 10
+// "photos" is deliberately excluded — the photo array is only ever changed via
+// addVehiclePhotos/removeVehiclePhoto, never through the general update endpoint.
+const UPDATABLE_FIELDS = ["type", "make", "model", "price_per_day", "city", "description"]
 
 export async function listVehicles({ type, city, minPrice, maxPrice, page, limit } = {}) {
     const conditions = ["status = 'active'"]
@@ -183,6 +188,88 @@ export async function deleteBlock(hostId, blockId) {
     )
 
     return result.rows[0]
+}
+
+export async function addVehiclePhotos(hostId, vehicleId, files) {
+    if (!files || files.length === 0) {
+        throw new HttpError(400, "no files uploaded")
+    }
+
+    const countResult = await query(`SELECT array_length(photos, 1) AS count FROM vehicles WHERE id = $1`, [
+        vehicleId,
+    ])
+
+    const currentCount = countResult.rows[0]?.count ?? 0
+
+    // small check-then-act race here is acceptable for a cap
+    if (currentCount + files.length > MAX_PHOTOS_PER_VEHICLE) {
+        throw new HttpError(400, `maximum ${MAX_PHOTOS_PER_VEHICLE} photos per vehicle`)
+    }
+
+    const urls = []
+
+    for (const file of files) {
+        const saved = await storage.saveImage(file.buffer, file.detectedMimeType)
+        urls.push(saved.url)
+    }
+
+    const result = await query(
+        `UPDATE vehicles
+         SET photos = photos || $1::text[]
+         WHERE id = $2 AND host_id = $3 AND status = 'active'
+         RETURNING photos`,
+        [urls, vehicleId, hostId]
+    )
+
+    if (result.rowCount === 0) {
+        for (const url of urls) {
+            try {
+                await storage.deleteImage(url)
+            } catch (err) {
+                logger.error(err, "failed to clean up uploaded file after vehicle not found")
+            }
+        }
+
+        throw new HttpError(404, "vehicle not found")
+    }
+
+    await query(
+        `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [hostId, "vehicle.photos_added", "vehicle", vehicleId, JSON.stringify({ urls })]
+    )
+
+    return result.rows[0].photos
+}
+
+export async function removeVehiclePhoto(hostId, vehicleId, url) {
+    const result = await query(
+        `UPDATE vehicles
+         SET photos = array_remove(photos, $1)
+         WHERE id = $2 AND host_id = $3 AND status = 'active'
+         RETURNING photos`,
+        [url, vehicleId, hostId]
+    )
+
+    if (result.rowCount === 0) {
+        throw new HttpError(404, "vehicle not found")
+    }
+
+    try {
+        await storage.deleteImage(url)
+    } catch (err) {
+        // DB is the source of truth; an orphaned file is a cleanup problem, a
+        // broken URL in the DB is a user-facing bug.
+        logger.error(err, "failed to delete vehicle photo file from storage")
+    }
+
+    await query(
+        `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [hostId, "vehicle.photo_removed", "vehicle", vehicleId, JSON.stringify({ url })]
+    )
+
+    return result.rows[0].photos
 }
 
 export async function getVehicleById(id) {

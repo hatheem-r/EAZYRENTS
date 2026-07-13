@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { getHealth } from '../api/health.js'
+import { useAuth } from '../auth/AuthContext.jsx'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 
 function Home() {
+  const { user } = useAuth()
   const [status, setStatus] = useState('checking...')
+
+  usePageTitle('Home')
 
   // TODO: remove this temporary API status check once a real dashboard exists
   useEffect(() => {
@@ -21,6 +26,11 @@ function Home() {
       cancelled = true
     }
   }, [])
+
+  // hosts landing on / are redirected to their dashboard; this is UX, not access control.
+  if (user?.role === 'host') {
+    return <Navigate to="/host" replace />
+  }
 
   return (
     <section className="home">

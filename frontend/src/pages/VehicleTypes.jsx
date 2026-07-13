@@ -1,19 +1,19 @@
 import { Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi.js'
+import { usePageTitle } from '../hooks/usePageTitle.js'
 import { getVehicleFacets } from '../api/vehicles.js'
+import Skeleton from '../components/Skeleton.jsx'
 
 function VehicleTypes() {
   const { data, loading, error, refetch } = useApi(() => getVehicleFacets(), [])
+
+  usePageTitle('Browse by vehicle type')
 
   return (
     <section className="vehicle-types">
       <h1 className="vehicle-types__heading">Browse by vehicle type</h1>
 
-      {loading && (
-        <p className="loading" role="status">
-          Loading vehicle types…
-        </p>
-      )}
+      {loading && <Skeleton variant="card" count={5} />}
 
       {!loading && error && (
         <section className="error-panel" role="alert">
