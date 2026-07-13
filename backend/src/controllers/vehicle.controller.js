@@ -9,6 +9,15 @@ export async function list(req, res, next) {
     }
 }
 
+export async function facets(req, res, next) {
+    try {
+        const result = await vehicleService.getVehicleFacets()
+        res.status(200).json(result)
+    } catch (err) {
+        next(err)
+    }
+}
+
 export async function getById(req, res, next) {
     try {
         const vehicle = await vehicleService.getVehicleById(req.params.id)

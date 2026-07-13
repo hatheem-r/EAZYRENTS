@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { getHealth } from '../api/health.js'
 
 function Home() {
@@ -28,6 +29,10 @@ function Home() {
 
       <section className="home__api-status">
         <p>{status}</p>
+      </section>
+
+      <section className="home-browse">
+        <Link to="/vehicles/types">Browse by vehicle type</Link>
       </section>
     </section>
   )

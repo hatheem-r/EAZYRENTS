@@ -54,6 +54,30 @@ export async function listVehicles({ type, city, minPrice, maxPrice, page, limit
     }
 }
 
+export async function getVehicleFacets() {
+    // TODO: candidate for Redis caching — facets change far less often than they're read
+    const typesResult = await query(
+        `SELECT type, count(*)::int AS count
+         FROM vehicles
+         WHERE status = 'active'
+         GROUP BY type
+         ORDER BY count DESC`
+    )
+
+    const citiesResult = await query(
+        `SELECT min(city) AS city, count(*)::int AS count
+         FROM vehicles
+         WHERE status = 'active'
+         GROUP BY lower(city)
+         ORDER BY city ASC`
+    )
+
+    return {
+        types: typesResult.rows,
+        cities: citiesResult.rows,
+    }
+}
+
 export async function getVehicleById(id) {
     const vehicleResult = await query(
         `SELECT * FROM vehicles WHERE id = $1 AND status = 'active'`,

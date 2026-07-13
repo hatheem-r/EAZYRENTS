@@ -50,6 +50,7 @@ const updateVehicleSchema = z
 
 const router = Router()
 
+router.get("/facets", vehicleController.facets)
 router.get("/", validateQuery(listQuerySchema), vehicleController.list)
 router.get("/:id", validateParams(idParamSchema), vehicleController.getById)
 

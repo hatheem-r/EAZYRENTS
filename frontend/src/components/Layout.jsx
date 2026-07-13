@@ -21,7 +21,7 @@ function Layout() {
           <NavLink to="/" end className={navLinkClassName}>
             Home
           </NavLink>
-          <NavLink to="/vehicles" className={navLinkClassName}>
+          <NavLink to="/vehicles/types" className={navLinkClassName}>
             Vehicles
           </NavLink>
 
