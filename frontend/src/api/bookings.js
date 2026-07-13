@@ -11,3 +11,7 @@ export function listMyBookings() {
 export function cancelBooking(id) {
   return post(`/bookings/${id}/cancel`)
 }
+
+export function requestExtension(bookingId, requestedEnd) {
+  return post(`/bookings/${bookingId}/extension`, { requestedEnd })
+}

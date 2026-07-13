@@ -1,4 +1,5 @@
 import * as bookingService from "../services/booking.service.js"
+import * as extensionService from "../services/extension.service.js"
 
 export async function create(req, res, next) {
     try {
@@ -19,6 +20,15 @@ export async function cancel(req, res, next) {
     try {
         const booking = await bookingService.cancelBooking(req.user.id, req.params.id)
         res.status(200).json(booking)
+    } catch (err) {
+        next(err)
+    }
+}
+
+export async function requestExtension(req, res, next) {
+    try {
+        const request = await extensionService.requestExtension(req.user.id, req.params.id, req.body.requestedEnd)
+        res.status(201).json(request)
     } catch (err) {
         next(err)
     }

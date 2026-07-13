@@ -24,6 +24,22 @@ const idParamSchema = z.object({
     id: z.string().uuid(),
 })
 
+const blockParamsSchema = z.object({
+    id: z.string().uuid(),
+    blockId: z.string().uuid(),
+})
+
+const createBlockSchema = z
+    .object({
+        startDate: z.string().datetime(),
+        endDate: z.string().datetime(),
+        reason: z.string().optional(),
+    })
+    .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+        message: "endDate must be after startDate",
+        path: ["endDate"],
+    })
+
 const createVehicleSchema = z.object({
     type: z.enum(VEHICLE_TYPES),
     make: z.string().min(1),
@@ -52,6 +68,30 @@ const router = Router()
 
 router.get("/facets", vehicleController.facets)
 router.get("/", validateQuery(listQuerySchema), vehicleController.list)
+
+router.get(
+    "/:id/blocks",
+    requireAuth,
+    requireRole("host"),
+    validateParams(idParamSchema),
+    vehicleController.listBlocks
+)
+router.post(
+    "/:id/blocks",
+    requireAuth,
+    requireRole("host"),
+    validateParams(idParamSchema),
+    validate(createBlockSchema),
+    vehicleController.createBlock
+)
+router.delete(
+    "/:id/blocks/:blockId",
+    requireAuth,
+    requireRole("host"),
+    validateParams(blockParamsSchema),
+    vehicleController.deleteBlock
+)
+
 router.get("/:id", validateParams(idParamSchema), vehicleController.getById)
 
 router.post(

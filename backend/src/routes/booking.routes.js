@@ -23,6 +23,10 @@ const idParamSchema = z.object({
     id: z.string().uuid(),
 })
 
+const requestExtensionSchema = z.object({
+    requestedEnd: z.string().datetime(),
+})
+
 const router = Router()
 
 router.post("/", requireAuth, requireRole("renter"), validate(createBookingSchema), bookingController.create)
@@ -33,6 +37,14 @@ router.post(
     requireRole("renter"),
     validateParams(idParamSchema),
     bookingController.cancel
+)
+router.post(
+    "/:id/extension",
+    requireAuth,
+    requireRole("renter"),
+    validateParams(idParamSchema),
+    validate(requestExtensionSchema),
+    bookingController.requestExtension
 )
 
 export default router

@@ -18,6 +18,42 @@ export async function facets(req, res, next) {
     }
 }
 
+export async function listMine(req, res, next) {
+    try {
+        const vehicles = await vehicleService.listHostVehicles(req.user.id)
+        res.status(200).json({ vehicles })
+    } catch (err) {
+        next(err)
+    }
+}
+
+export async function listBlocks(req, res, next) {
+    try {
+        const blocks = await vehicleService.listVehicleBlocks(req.user.id, req.params.id)
+        res.status(200).json({ blocks })
+    } catch (err) {
+        next(err)
+    }
+}
+
+export async function createBlock(req, res, next) {
+    try {
+        const block = await vehicleService.createBlock(req.user.id, req.params.id, req.body)
+        res.status(201).json(block)
+    } catch (err) {
+        next(err)
+    }
+}
+
+export async function deleteBlock(req, res, next) {
+    try {
+        await vehicleService.deleteBlock(req.user.id, req.params.blockId)
+        res.status(204).send()
+    } catch (err) {
+        next(err)
+    }
+}
+
 export async function getById(req, res, next) {
     try {
         const vehicle = await vehicleService.getVehicleById(req.params.id)
@@ -45,10 +81,13 @@ export async function update(req, res, next) {
     }
 }
 
+// Contract change: this used to respond 204 with no body. Removing a vehicle
+// now has side effects worth reporting (bookings cancelled), so it responds
+// 200 with { cancelledBookings } instead.
 export async function remove(req, res, next) {
     try {
-        await vehicleService.removeVehicle(req.user.id, req.params.id)
-        res.status(204).send()
+        const result = await vehicleService.removeVehicle(req.user.id, req.params.id)
+        res.status(200).json(result)
     } catch (err) {
         next(err)
     }

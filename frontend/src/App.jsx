@@ -9,6 +9,7 @@ import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import MyBookings from './pages/MyBookings.jsx'
 import HostDashboard from './pages/host/HostDashboard.jsx'
+import VehicleBlocks from './pages/host/VehicleBlocks.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
 
           <Route element={<ProtectedRoute role="host" />}>
             <Route path="host" element={<HostDashboard />} />
+            <Route path="host/vehicles/:id/blocks" element={<VehicleBlocks />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

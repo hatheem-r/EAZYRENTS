@@ -1,4 +1,4 @@
-import { query } from "../db/index.js"
+import { query, pool } from "../db/index.js"
 import { HttpError } from "../utils/httpError.js"
 
 const DEFAULT_LIMIT = 12
@@ -78,6 +78,113 @@ export async function getVehicleFacets() {
     }
 }
 
+export async function listHostVehicles(hostId) {
+    const result = await query(
+        `SELECT * FROM vehicles WHERE host_id = $1 AND status = 'active' ORDER BY created_at DESC`,
+        [hostId]
+    )
+
+    return result.rows
+}
+
+export async function listVehicleBlocks(hostId, vehicleId) {
+    const ownership = await query(`SELECT 1 FROM vehicles WHERE id = $1 AND host_id = $2`, [vehicleId, hostId])
+
+    if (ownership.rowCount === 0) {
+        throw new HttpError(404, "vehicle not found")
+    }
+
+    const result = await query(
+        `SELECT b.id, lower(b.period) AS start_date, upper(b.period) AS end_date, b.reason
+         FROM availability_blocks b
+         JOIN vehicles v ON v.id = b.vehicle_id
+         WHERE b.vehicle_id = $1 AND v.host_id = $2
+         ORDER BY start_date`,
+        [vehicleId, hostId]
+    )
+
+    return result.rows
+}
+
+export async function createBlock(hostId, vehicleId, { startDate, endDate, reason }) {
+    const client = await pool.connect()
+
+    try {
+        await client.query("BEGIN")
+
+        const vehicleResult = await client.query(
+            `SELECT id FROM vehicles WHERE id = $1 AND host_id = $2 AND status = 'active' FOR UPDATE`,
+            [vehicleId, hostId]
+        )
+
+        if (vehicleResult.rowCount === 0) {
+            throw new HttpError(404, "vehicle not found")
+        }
+
+        const bookingConflict = await client.query(
+            `SELECT 1 FROM bookings
+             WHERE vehicle_id = $1 AND status IN ('confirmed', 'active') AND period && tstzrange($2, $3)
+             LIMIT 1`,
+            [vehicleId, startDate, endDate]
+        )
+
+        if (bookingConflict.rows[0]) {
+            throw new HttpError(409, "dates conflict with an existing booking")
+        }
+
+        const blockResult = await client.query(
+            `INSERT INTO availability_blocks (vehicle_id, period, reason)
+             VALUES ($1, tstzrange($2, $3), $4)
+             RETURNING id, lower(period) AS start_date, upper(period) AS end_date, reason`,
+            [vehicleId, startDate, endDate, reason ?? null]
+        )
+
+        const block = blockResult.rows[0]
+
+        await client.query(
+            `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [hostId, "block.created", "block", block.id, JSON.stringify({ vehicleId, period: { startDate, endDate } })]
+        )
+
+        await client.query("COMMIT")
+
+        return block
+    } catch (err) {
+        await client.query("ROLLBACK")
+
+        if (err.code === "23P01") {
+            throw new HttpError(409, "dates overlap an existing block")
+        }
+
+        throw err
+    } finally {
+        client.release()
+    }
+}
+
+export async function deleteBlock(hostId, blockId) {
+    const result = await query(
+        `DELETE FROM availability_blocks ab
+         USING vehicles v
+         WHERE ab.id = $1 AND v.id = ab.vehicle_id AND v.host_id = $2
+         RETURNING ab.id`,
+        [blockId, hostId]
+    )
+
+    if (result.rowCount === 0) {
+        throw new HttpError(404, "block not found")
+    }
+
+    await query(
+        `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [hostId, "block.deleted", "block", blockId, JSON.stringify({ blockId })]
+    )
+
+    return result.rows[0]
+}
+
 export async function getVehicleById(id) {
     const vehicleResult = await query(
         `SELECT * FROM vehicles WHERE id = $1 AND status = 'active'`,
@@ -149,14 +256,78 @@ export async function updateVehicle(hostId, vehicleId, data) {
 }
 
 export async function removeVehicle(hostId, vehicleId) {
-    const result = await query(
-        `UPDATE vehicles
-         SET status = 'removed'
-         WHERE id = $1 AND host_id = $2 AND status = 'active'`,
-        [vehicleId, hostId]
-    )
+    const client = await pool.connect()
 
-    if (result.rowCount === 0) {
-        throw new HttpError(404, "vehicle not found")
+    try {
+        await client.query("BEGIN")
+
+        const vehicleResult = await client.query(
+            `UPDATE vehicles
+             SET status = 'removed'
+             WHERE id = $1 AND host_id = $2 AND status = 'active'
+             RETURNING id`,
+            [vehicleId, hostId]
+        )
+
+        if (vehicleResult.rowCount === 0) {
+            throw new HttpError(404, "vehicle not found")
+        }
+
+        // Policy: removing a vehicle only cancels bookings that haven't started yet.
+        // Bookings already underway (status 'active', or 'confirmed' with a period
+        // that has already begun) are left alone — the renter already has the
+        // vehicle, so the rental runs to its natural end and the lifecycle job
+        // completes it normally.
+        const cancelledResult = await client.query(
+            `UPDATE bookings
+             SET status = 'cancelled'
+             WHERE vehicle_id = $1 AND status IN ('pending', 'confirmed') AND lower(period) > now()
+             RETURNING id, renter_id`,
+            [vehicleId]
+        )
+
+        const cancelledBookings = cancelledResult.rows
+
+        const rejectedResult = await client.query(
+            `UPDATE extension_requests er
+             SET status = 'rejected', decided_at = now()
+             FROM bookings b
+             WHERE er.booking_id = b.id AND b.vehicle_id = $1 AND er.status = 'pending'
+             RETURNING er.id`,
+            [vehicleId]
+        )
+
+        const rejectedExtensions = rejectedResult.rows
+
+        await client.query(
+            `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+                hostId,
+                "vehicle.removed",
+                "vehicle",
+                vehicleId,
+                JSON.stringify({
+                    cancelledBookings: cancelledBookings.map((b) => b.id),
+                    rejectedExtensions: rejectedExtensions.map((r) => r.id),
+                }),
+            ]
+        )
+
+        await client.query(
+            `INSERT INTO audit_log (actor_id, action, entity_type, entity_id, details)
+             SELECT $1, 'booking.cancelled_by_removal', 'booking', id, $2::jsonb
+             FROM unnest($3::uuid[]) AS id`,
+            [hostId, JSON.stringify({ reason: "vehicle removed" }), cancelledBookings.map((b) => b.id)]
+        )
+
+        await client.query("COMMIT")
+
+        return { cancelledBookings: cancelledBookings.length }
+    } catch (err) {
+        await client.query("ROLLBACK")
+        throw err
+    } finally {
+        client.release()
     }
 }

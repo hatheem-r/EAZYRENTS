@@ -2,47 +2,13 @@ import { useRef, useState } from 'react'
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
 import 'react-day-picker/style.css'
-import { subDays, differenceInCalendarDays, isBefore, isWithinInterval, startOfToday, eachDayOfInterval } from 'date-fns'
+import { differenceInCalendarDays } from 'date-fns'
 import { useApi } from '../hooks/useApi.js'
 import { getVehicle } from '../api/vehicles.js'
 import { createBooking } from '../api/bookings.js'
 import { ApiError } from '../api/client.js'
 import { useAuth } from '../auth/AuthContext.jsx'
-
-function buildDisabledMatchers(unavailableDates) {
-  const pastDays = { before: startOfToday() }
-
-  const bookedRanges = unavailableDates.map(({ start_date, end_date }) => ({
-    from: new Date(start_date),
-    // end_date is the checkout day (exclusive) — the guest can still check
-    // out that morning, so the last actually-blocked night is the day before.
-    to: subDays(new Date(end_date), 1),
-  }))
-
-  return [pastDays, ...bookedRanges]
-}
-
-// The backend requires full ISO 8601 datetimes with a literal "Z" (zod's
-// z.string().datetime() rejects a bare offset like "+00:00"). DayPicker gives
-// us Date objects anchored to the calendar day in the browser's local
-// timezone, so re-anchor to UTC midnight before serializing — otherwise
-// toISOString() could shift the selected day backward/forward for guests
-// west/east of UTC.
-function toUtcMidnightIso(date) {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())).toISOString()
-}
-
-function rangeOverlapsDisabled(range, disabledMatchers) {
-  if (!range?.from || !range?.to) return false
-
-  const days = eachDayOfInterval({ start: range.from, end: range.to })
-
-  return days.some((day) =>
-    disabledMatchers.some((matcher) =>
-      matcher.before ? isBefore(day, matcher.before) : isWithinInterval(day, { start: matcher.from, end: matcher.to }),
-    ),
-  )
-}
+import { buildDisabledMatchers, rangeOverlapsDisabled, toUtcMidnightIso } from '../lib/availability.js'
 
 function VehicleDetails() {
   const { id } = useParams()
@@ -190,11 +156,21 @@ function VehicleDetails() {
 
         {hasCompleteRange && (
           <>
-            <p className="booking-summary__pricing">
-              {nights > 0
-                ? `${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last date.`
-                : 'Select more than two days, so you will have your vehicle for at least one night.'}
-            </p>
+            {user?.role === 'renter' ? (
+              <>
+              
+              <p className="booking-summary__pricing">
+                {nights > 0
+                  ? `${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last date.`
+                  : 'Select more than two days, so you will have your vehicle for at least one night.'}
+              </p>
+
+              <button type="button" onClick={handleBook} disabled={submitting}>
+                {submitting ? 'Booking…' : 'Book these dates'}
+              </button>
+              </>
+            ): (<p className="notice">Hosts cannot book vehicles.</p>)}
+
 
             {!user && (
               <Link to="/login" state={{ from: location }}>
@@ -202,13 +178,8 @@ function VehicleDetails() {
               </Link>
             )}
 
-            {user?.role === 'renter' && (
-              <button type="button" onClick={handleBook} disabled={submitting}>
-                {submitting ? 'Booking…' : 'Book these dates'}
-              </button>
-            )}
 
-            {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>}
+            {/* {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>} */}
           </>
         )}
       </section>
