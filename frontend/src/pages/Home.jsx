@@ -32,7 +32,8 @@ function Home() {
       </section>
 
       <section className="home-browse">
-        <Link to="/vehicles/types">Browse by vehicle type</Link>
+        <Link to="/vehicles/types">Browse by vehicle type </Link>
+        {/* <Link to="/register?role=host"> List your vehicle — become a host</Link> */}
       </section>
     </section>
   )

@@ -190,8 +190,10 @@ function VehicleDetails() {
 
         {hasCompleteRange && (
           <>
-            <p>
-              {nights > 0 ? (`${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last Date.`): 'Select more than two days, So you will have your vehicle for atleast one night.'}
+            <p className="booking-summary__pricing">
+              {nights > 0
+                ? `${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last date.`
+                : 'Select more than two days, so you will have your vehicle for at least one night.'}
             </p>
 
             {!user && (

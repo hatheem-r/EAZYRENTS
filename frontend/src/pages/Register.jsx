@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../api/client.js'
 
@@ -39,8 +39,12 @@ function mapValidationDetails(details) {
 function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'renter' })
+  // role comes from the URL, sanitized; the backend's zod enum is the real gate.
+  const role = searchParams.get('role') === 'host' ? 'host' : 'renter'
+
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [fieldErrors, setFieldErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -64,7 +68,7 @@ function Register() {
     setSubmitting(true)
 
     try {
-      await register(form)
+      await register({ ...form, role })
       navigate('/')
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -88,7 +92,9 @@ function Register() {
 
   return (
     <section className="register">
-      <h1 className="register__heading">Register</h1>
+      <h1 className="register__heading">
+        {role === 'host' ? 'Register as a host' : 'Create your account'}
+      </h1>
 
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         {formError && (
@@ -148,34 +154,6 @@ function Register() {
           )}
         </div>
 
-        <fieldset className="form-field">
-          <legend>Role</legend>
-
-          <label htmlFor="register-role-renter">
-            <input
-              id="register-role-renter"
-              name="role"
-              type="radio"
-              value="renter"
-              checked={form.role === 'renter'}
-              onChange={handleChange}
-            />
-            Renter
-          </label>
-
-          <label htmlFor="register-role-host">
-            <input
-              id="register-role-host"
-              name="role"
-              type="radio"
-              value="host"
-              checked={form.role === 'host'}
-              onChange={handleChange}
-            />
-            Host
-          </label>
-        </fieldset>
-
         <button type="submit" disabled={submitting}>
           {submitting ? 'Creating account...' : 'Create account'}
         </button>
@@ -184,9 +162,21 @@ function Register() {
       <div>Already have an account?
         <a href="/login"> Log in here</a>
       </div>
-    
-  
 
+      {/* Switching modes only changes searchParams on this same mounted
+          component, so whatever the user already typed above is preserved. */}
+      <p className="register-switch">
+        {role === 'host' ? (
+          <>
+            Just looking to rent? <Link to="/register">Register as a renter</Link>
+          </>
+        ) : (
+          <>
+            Need to rent out your vehicles?{' '}
+            <Link to="/register?role=host">Register as a Host</Link>
+          </>
+        )}
+      </p>
     </section>
   )
 }
