@@ -36,12 +36,16 @@ function Vehicles() {
 
   return (
     <section className="vehicles">
+
       {/* {activeType && (
         <nav className="breadcrumb">
-          <Link to="/vehicles/types">All types</Link>
+          <Link to="/vehicles/types">Back</Link>
           <span>{pluralizeType(activeType)}</span>
-        </nav>
-      )} */}
+        </nav>)} */}
+
+      { <nav className="breadcrumb">
+          <Link to="/vehicles/types">Back</Link>
+        </nav>}
 
       <h1 className="vehicles__heading">
         {activeType ? pluralizeType(activeType) : 'All vehicles'}

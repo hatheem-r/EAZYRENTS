@@ -111,6 +111,10 @@ function VehicleDetails() {
   const total = nights * pricePerDay
 
   return (
+    <section>
+
+    <Link to="/vehicles">Back to vehicles</Link>
+
     <article className="vehicle-details">
       <header className="vehicle-details__header">
         <h1 className="vehicle-details__heading">
@@ -144,7 +148,7 @@ function VehicleDetails() {
           excludeDisabled
           selected={range}
           onSelect={handleSelect}
-        />
+          />
       </section>
 
       <section className="booking-summary">
@@ -154,9 +158,9 @@ function VehicleDetails() {
           </p>
         )}
 
-        {hasCompleteRange && (
+        {hasCompleteRange &&  (
           <>
-            {user?.role === 'renter' ? (
+            {user?.role === 'renter' && (
               <>
               
               <p className="booking-summary__pricing">
@@ -169,7 +173,7 @@ function VehicleDetails() {
                 {submitting ? 'Booking…' : 'Book these dates'}
               </button>
               </>
-            ): (<p className="notice">Hosts cannot book vehicles.</p>)}
+            ) }
 
 
             {!user && (
@@ -179,11 +183,12 @@ function VehicleDetails() {
             )}
 
 
-            {/* {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>} */}
+            {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>}
           </>
         )}
       </section>
     </article>
+   </section>
   )
 }
 
