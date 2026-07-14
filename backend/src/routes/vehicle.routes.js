@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js"
 import { uploadPhotos, verifyImageContent } from "../middleware/upload.js"
 import * as vehicleController from "../controllers/vehicle.controller.js"
 
-const VEHICLE_TYPES = ["car", "van", "suv", "bike", "scooter"]
+const VEHICLE_TYPES = ["car", "van", "suv", "bike", "scooter", "tuktuk"]
 
 const listQuerySchema = z
     .object({

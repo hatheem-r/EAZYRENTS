@@ -52,17 +52,24 @@ function VehicleTypes() {
             </li>
           ))}
 
-          {/* Not a bookable type yet — the backend's type enum doesn't
-              include tuktuk. Shown as a teaser until the migration lands. */}
-          <li className="type-card type-card--soon" aria-disabled="true">
-            <article>
-              <div className="type-card__art">
-                <VehicleArt type="tuktuk" />
-              </div>
-              <h2 className="type-card__title">Tuktuk</h2>
-              <span className="type-card__count type-card__count--soon">Coming soon</span>
-            </article>
-          </li>
+          {/* Facets omit types with zero listings, so once the first
+              tuktuk is listed the real card above replaces this teaser
+              automatically. Until then, invite hosts to be first. */}
+          {!data.types.some(({ type }) => type === 'tuktuk') && (
+            <li className="type-card type-card--soon">
+              <Link to="/register?role=host" className="type-card__link">
+                <article>
+                  <div className="type-card__art">
+                    <VehicleArt type="tuktuk" />
+                  </div>
+                  <h2 className="type-card__title">Tuktuk</h2>
+                  <span className="type-card__count type-card__count--soon">
+                    None listed yet — be the first
+                  </span>
+                </article>
+              </Link>
+            </li>
+          )}
         </ul>
       )}
     </section>

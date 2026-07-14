@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ApiError } from '../../api/client.js'
 
-const VEHICLE_TYPES = ['car', 'van', 'suv', 'bike', 'scooter']
+const VEHICLE_TYPES = ['car', 'van', 'suv', 'bike', 'scooter', 'tuktuk']
 
 const EMPTY_VALUES = {
   type: 'car',
