@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/style.css'
 import { differenceInCalendarDays } from 'date-fns'
 import { useApi } from '../hooks/useApi.js'
 import { usePageTitle } from '../hooks/usePageTitle.js'
@@ -12,6 +11,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { buildDisabledMatchers, rangeOverlapsDisabled, toUtcMidnightIso } from '../lib/availability.js'
 import Skeleton from '../components/Skeleton.jsx'
 import { photoUrl } from '../utils/imageUrl.js'
+import VehicleArt from '../components/VehicleArt.jsx'
 
 function VehicleDetails() {
   const { id } = useParams()
@@ -38,8 +38,10 @@ function VehicleDetails() {
     if (error.status === 404) {
       return (
         <section className="error-panel">
-          <p>Vehicle not found</p>
-          <Link to="/vehicles">Back to vehicles</Link>
+          <p>This vehicle is no longer listed.</p>
+          <Link to="/vehicles" className="btn btn--secondary btn--small">
+            Back to vehicles
+          </Link>
         </section>
       )
     }
@@ -47,7 +49,7 @@ function VehicleDetails() {
     return (
       <section className="error-panel" role="alert">
         <p>{error.message}</p>
-        <button type="button" onClick={refetch}>
+        <button type="button" className="btn btn--secondary" onClick={refetch}>
           Retry
         </button>
       </section>
@@ -112,86 +114,133 @@ function VehicleDetails() {
   const total = nights * pricePerDay
 
   return (
-    <section>
-
-    <Link to="/vehicles">Back to vehicles</Link>
-
-    <article className="vehicle-details">
-      <header className="vehicle-details__header">
-        <h1 className="vehicle-details__heading">
+    <section className="vehicle-details-page">
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/vehicles" className="breadcrumb__link">
+          All vehicles
+        </Link>
+        <span className="breadcrumb__current">
           {vehicle.make} {vehicle.model}
-        </h1>
-        <span className="vehicle-details__type">{vehicle.type}</span>
-        <span className="vehicle-details__city">{vehicle.city}</span>
-      </header>
+        </span>
+      </nav>
 
-      {vehicle.photos?.length > 0 ? (
-        <ul className="vehicle-details__photos">
-          {vehicle.photos.map((photo) => (
-            <li key={photo}>
-              <figure>
-                <img src={photoUrl(photo)} alt={`${vehicle.make} ${vehicle.model}`} />
-              </figure>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="no-photos">No photos yet</p>
-      )}
+      <article className="vehicle-details">
+        <div className="vehicle-details__main">
+          <header className="vehicle-details__header">
+            <h1 className="vehicle-details__heading">
+              {vehicle.make} {vehicle.model}
+            </h1>
+            <p className="vehicle-details__meta">
+              <span className="vehicle-details__type">{vehicle.type}</span>
+              <span className="vehicle-details__city">{vehicle.city}</span>
+            </p>
+          </header>
 
-      {vehicle.description && <p className="vehicle-details__description">{vehicle.description}</p>}
+          {vehicle.photos?.length > 0 ? (
+            <ul className="vehicle-details__photos">
+              {vehicle.photos.map((photo, index) => (
+                <li
+                  key={photo}
+                  className={index === 0 ? 'vehicle-details__photo--lead' : 'vehicle-details__photo'}
+                >
+                  <figure>
+                    <img src={photoUrl(photo)} alt={`${vehicle.make} ${vehicle.model}`} />
+                  </figure>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="vehicle-details__no-photos no-photos" aria-hidden="true">
+              <VehicleArt type={vehicle.type} />
+              <p>No photos yet — but it drives just fine.</p>
+            </div>
+          )}
 
-      <p className="vehicle-details__price">LKR {vehicle.price_per_day}/day</p>
+          {vehicle.description && (
+            <section className="vehicle-details__about">
+              <h2>About this vehicle</h2>
+              <p className="vehicle-details__description">{vehicle.description}</p>
+            </section>
+          )}
+        </div>
 
-      <section className="vehicle-availability">
-        <DayPicker
-          mode="range"
-          numberOfMonths={2}
-          disabled={disabledMatchers}
-          excludeDisabled
-          selected={range}
-          onSelect={handleSelect}
-          />
-      </section>
-
-      <section className="booking-summary">
-        {bookingError && (
-          <p className="form-error" role="alert">
-            {bookingError}
+        <aside className="vehicle-details__panel">
+          <p className="vehicle-details__price">
+            LKR {vehicle.price_per_day}
+            <span className="vehicle-details__price-unit">/day</span>
           </p>
-        )}
 
-        {hasCompleteRange &&  (
-          <>
-            {user?.role === 'renter' && (
-              <>
-              
-              <p className="booking-summary__pricing">
-                {nights > 0
-                  ? `${nights} nights × LKR ${pricePerDay} = LKR ${total}. Return your vehicle before the beginning of the last date.`
-                  : 'Select more than two days, so you will have your vehicle for at least one night.'}
+          <section className="vehicle-availability">
+            <h2 className="vehicle-availability__heading">Pick your dates</h2>
+            <DayPicker
+              mode="range"
+              numberOfMonths={1}
+              startMonth={new Date()}
+              disabled={disabledMatchers}
+              excludeDisabled
+              selected={range}
+              onSelect={handleSelect}
+            />
+          </section>
+
+          <section className="booking-summary">
+            {bookingError && (
+              <p className="form-error" role="alert">
+                {bookingError}
               </p>
-
-              <button type="button" onClick={handleBook} disabled={submitting}>
-                {submitting ? 'Booking…' : 'Book these dates'}
-              </button>
-              </>
-            ) }
-
-
-            {!user && (
-              <Link to="/login" state={{ from: location }}>
-                Log in to book
-              </Link>
             )}
 
+            {!hasCompleteRange && (
+              <p className="booking-summary__hint">
+                Select a pick-up and return day to see your total. Greyed-out
+                days are already booked or blocked.
+              </p>
+            )}
 
-            {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>}
-          </>
-        )}
-      </section>
-    </article>
-   </section>
+            {hasCompleteRange && (
+              <>
+                {user?.role === 'renter' && (
+                  <>
+                    {nights > 0 ? (
+                      <div className="booking-summary__pricing">
+                        <p className="booking-summary__math">
+                          {nights} {nights === 1 ? 'night' : 'nights'} × LKR {pricePerDay}
+                        </p>
+                        <p className="booking-summary__total">LKR {total}</p>
+                        <p className="booking-summary__note">
+                          Return the vehicle before the start of your last selected day.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="booking-summary__hint">
+                        Select at least two days so you have the vehicle for a full night.
+                      </p>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn btn--primary btn--block"
+                      onClick={handleBook}
+                      disabled={submitting || nights === 0}
+                    >
+                      {submitting ? 'Booking…' : 'Book these dates'}
+                    </button>
+                  </>
+                )}
+
+                {!user && (
+                  <Link to="/login" state={{ from: location }} className="btn btn--primary btn--block">
+                    Log in to book
+                  </Link>
+                )}
+
+                {user?.role === 'host' && <p className="notice">Hosts cannot book vehicles.</p>}
+              </>
+            )}
+          </section>
+        </aside>
+      </article>
+    </section>
   )
 }
 

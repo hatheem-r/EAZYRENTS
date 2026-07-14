@@ -113,12 +113,17 @@ function VehicleForm({ initialValues, onSubmit, onCancel }) {
 
   return (
     <form className="vehicle-form" onSubmit={handleSubmit}>
+      <h2 className="vehicle-form__heading">
+        {isEditMode ? 'Edit vehicle' : 'Add a vehicle'}
+      </h2>
+
       {formError && (
         <p className="form-error" role="alert">
           {formError}
         </p>
       )}
 
+      <div className="vehicle-form__grid">
       <div className="form-field">
         <label htmlFor="vehicle-form-type">Type</label>
         <select id="vehicle-form-type" name="type" value={form.type} onChange={handleChange}>
@@ -201,22 +206,28 @@ function VehicleForm({ initialValues, onSubmit, onCancel }) {
         )}
       </div>
 
-      <div className="form-field">
+      </div>
+
+      <div className="form-field form-field--full">
         <label htmlFor="vehicle-form-description">Description</label>
         <textarea
           id="vehicle-form-description"
           name="description"
+          rows="3"
+          placeholder="Seats, fuel type, quirks, what trips it's best for…"
           value={form.description}
           onChange={handleChange}
         />
       </div>
 
-      <button type="submit" disabled={submitting}>
-        {submitting ? 'Saving…' : isEditMode ? 'Save changes' : 'Add vehicle'}
-      </button>
-      <button type="button" onClick={onCancel}>
-        Cancel
-      </button>
+      <div className="vehicle-form__actions">
+        <button type="submit" className="btn btn--primary" disabled={submitting}>
+          {submitting ? 'Saving…' : isEditMode ? 'Save changes' : 'Add vehicle'}
+        </button>
+        <button type="button" className="btn btn--ghost" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </form>
   )
 }

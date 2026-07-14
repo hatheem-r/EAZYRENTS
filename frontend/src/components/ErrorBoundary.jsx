@@ -20,7 +20,7 @@ class ErrorBoundary extends Component {
       return (
         <section className="error-panel" role="alert">
           <p>Something went wrong</p>
-          <button type="button" onClick={this.handleReload}>
+          <button type="button" className="btn btn--secondary" onClick={this.handleReload}>
             Reload
           </button>
         </section>

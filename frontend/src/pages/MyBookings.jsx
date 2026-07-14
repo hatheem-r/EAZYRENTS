@@ -6,6 +6,7 @@ import { usePageTitle } from '../hooks/usePageTitle.js'
 import { listMyBookings, cancelBooking, requestExtension } from '../api/bookings.js'
 import { ApiError } from '../api/client.js'
 import Skeleton from '../components/Skeleton.jsx'
+import { useConfirm } from '../components/ConfirmDialog.jsx'
 
 const CANCELLABLE_STATUSES = ['pending', 'confirmed']
 const REMAINING_STATUSES = ['confirmed', 'active']
@@ -24,6 +25,7 @@ function MyBookings() {
   const location = useLocation()
   const { data, loading, error, refetch } = useApi(() => listMyBookings(), [])
   const [cancelError, setCancelError] = useState('')
+  const confirm = useConfirm()
   const [cancellingId, setCancellingId] = useState(null)
 
   const [extendingId, setExtendingId] = useState(null)
@@ -38,7 +40,7 @@ function MyBookings() {
   usePageTitle('My bookings')
 
   async function handleCancel(id) {
-    if (!window.confirm('Cancel this booking?')) return
+    if (!(await confirm('Cancel this booking? Your dates will be released.', { confirmLabel: 'Cancel booking' }))) return
 
     setCancelError('')
     setCancellingId(id)
@@ -105,13 +107,156 @@ function MyBookings() {
     }
   }
 
+  const bookings = data?.bookings ?? []
+  const activeBookings = bookings.filter((b) => b.status === 'active')
+  const upcomingBookings = bookings.filter((b) => ['pending', 'confirmed'].includes(b.status))
+  const archivedBookings = bookings.filter((b) => ['completed', 'cancelled'].includes(b.status))
+
+  function renderBookingCard(booking, { tier }) {
+    const endingSoon =
+      REMAINING_STATUSES.includes(booking.status) && booking.days_remaining <= 2
+
+    const cardClass = [
+      'booking-card',
+      tier === 'active' ? 'booking-card--current' : '',
+      endingSoon ? 'booking-card--ending-soon' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return (
+      <li key={booking.id} className={cardClass}>
+        <article>
+          <header className="booking-card__header">
+            <h3 className="booking-card__title">
+              {LINKABLE_STATUSES.includes(booking.status) ? (
+                <Link to={`/vehicles/${booking.vehicle.id}`}>
+                  {booking.vehicle.make} {booking.vehicle.model}
+                </Link>
+              ) : (
+                // cancelled/completed bookings may reference removed
+                // vehicles; plain text avoids dead links cheaply.
+                <span className="booking-card__vehicle">
+                  {booking.vehicle.make} {booking.vehicle.model}
+                </span>
+              )}
+            </h3>
+
+            <span className={`status-badge status-badge--${booking.status}`}>
+              {booking.status}
+            </span>
+            {endingSoon && (
+              <span className="status-badge status-badge--ending-soon">Ending soon</span>
+            )}
+          </header>
+
+          <p className="booking-card__dates">
+            {formatDateRange(booking.start_date, booking.end_date)}
+          </p>
+
+          <div className="booking-card__facts">
+            {REMAINING_STATUSES.includes(booking.status) && (
+              <p className="booking-card__remaining">
+                <strong>{booking.days_remaining}</strong>{' '}
+                {booking.days_remaining === 1 ? 'day' : 'days'} remaining
+              </p>
+            )}
+            <p className="booking-card__total">Total: LKR {booking.total_amount}</p>
+          </div>
+
+          {(CANCELLABLE_STATUSES.includes(booking.status) ||
+            EXTENDABLE_STATUSES.includes(booking.status)) && (
+            <div className="booking-card__actions">
+              {CANCELLABLE_STATUSES.includes(booking.status) && (
+                <button
+                  type="button"
+                  className="btn btn--danger btn--small"
+                  onClick={() => handleCancel(booking.id)}
+                  disabled={cancellingId === booking.id}
+                  aria-label={`Cancel booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
+                >
+                  {cancellingId === booking.id ? 'Cancelling…' : 'Cancel'}
+                </button>
+              )}
+
+              {EXTENDABLE_STATUSES.includes(booking.status) &&
+                (pendingExtensionIds.has(booking.id) ? (
+                  <span className="status-badge status-badge--pending">
+                    Extension requested
+                  </span>
+                ) : (
+                  extendingId !== booking.id && (
+                    <button
+                      type="button"
+                      className="btn btn--secondary btn--small"
+                      onClick={() => openExtendForm(booking.id)}
+                      aria-label={`Extend booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
+                    >
+                      Extend
+                    </button>
+                  )
+                ))}
+            </div>
+          )}
+
+          {EXTENDABLE_STATUSES.includes(booking.status) &&
+            !pendingExtensionIds.has(booking.id) &&
+            extendingId === booking.id && (
+              <form
+                className="extension-form"
+                onSubmit={(event) => handleRequestExtension(event, booking.id)}
+              >
+                {extensionError && (
+                  <p className="form-error" role="alert">
+                    {extensionError}
+                  </p>
+                )}
+
+                <div className="form-field">
+                  <label htmlFor={`extension-date-${booking.id}`}>New return date</label>
+                  <input
+                    id={`extension-date-${booking.id}`}
+                    type="date"
+                    min={format(addDays(new Date(booking.end_date), 1), 'yyyy-MM-dd')}
+                    value={extensionDate}
+                    onChange={(event) => setExtensionDate(event.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="extension-form__actions">
+                  <button
+                    type="submit"
+                    className="btn btn--primary btn--small"
+                    disabled={extensionSubmittingId === booking.id}
+                  >
+                    {extensionSubmittingId === booking.id ? 'Requesting…' : 'Request extension'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--small"
+                    onClick={closeExtendForm}
+                    aria-label="Cancel extension request"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+        </article>
+      </li>
+    )
+  }
+
   return (
     <section className="my-bookings">
-      <h1 className="my-bookings__heading">My bookings</h1>
+      <header className="page-header">
+        <h1 className="my-bookings__heading">My bookings</h1>
+      </header>
 
       {location.state?.justBooked && (
         <p className="notice notice--success" role="status">
-          Booking confirmed!
+          Booking confirmed! Your dates are locked in.
         </p>
       )}
 
@@ -126,135 +271,75 @@ function MyBookings() {
       {!loading && error && (
         <section className="error-panel" role="alert">
           <p>{error.message}</p>
-          <button type="button" onClick={refetch}>
+          <button type="button" className="btn btn--secondary" onClick={refetch}>
             Retry
           </button>
         </section>
       )}
 
-      {!loading && !error && data?.bookings.length === 0 && (
-        <p className="empty-state">
-          No bookings yet. <Link to="/vehicles/types">Browse vehicles</Link>
-        </p>
+      {!loading && !error && bookings.length === 0 && (
+        <div className="empty-state">
+          <p>No trips on the calendar yet.</p>
+          <Link to="/vehicles/types" className="btn btn--primary">
+            Browse vehicles
+          </Link>
+        </div>
       )}
 
-      {!loading && !error && data?.bookings.length > 0 && (
-        <ul className="booking-list">
-          {data.bookings.map((booking) => {
-            const endingSoon =
-              REMAINING_STATUSES.includes(booking.status) && booking.days_remaining <= 2
+      {!loading && !error && bookings.length > 0 && (
+        <div
+          className={
+            activeBookings.length > 0
+              ? 'booking-columns'
+              : 'booking-columns booking-columns--single'
+          }
+        >
+          {activeBookings.length > 0 && (
+            <section className="booking-tier booking-tier--active">
+              <h2 className="booking-tier__heading">Happening now</h2>
+              <ul className="booking-list">
+                {activeBookings.map((booking) => renderBookingCard(booking, { tier: 'active' }))}
+              </ul>
+            </section>
+          )}
 
-            return (
-              <li
-                key={booking.id}
-                className={
-                  endingSoon ? 'booking-card booking-card--ending-soon' : 'booking-card'
-                }
-              >
-                <article>
-                  <h2>
-                    {LINKABLE_STATUSES.includes(booking.status) ? (
-                      <Link to={`/vehicles/${booking.vehicle.id}`}>
-                        {booking.vehicle.make} {booking.vehicle.model}
-                      </Link>
-                    ) : (
-                      // cancelled/completed bookings may reference removed
-                      // vehicles; plain text avoids dead links cheaply.
-                      <span className="booking-card__vehicle">
-                        {booking.vehicle.make} {booking.vehicle.model}
-                      </span>
-                    )}
-                  </h2>
+          <div className="booking-columns__side">
+          {upcomingBookings.length > 0 && (
+            <section className="booking-tier">
+              <h2 className="booking-tier__heading">Upcoming</h2>
+              <div className="booking-columns__scroll">
+                <ul className="booking-list">
+                  {upcomingBookings.map((booking) => renderBookingCard(booking, { tier: 'upcoming' }))}
+                </ul>
+              </div>
+            </section>
+          )}
 
-                  <p>{formatDateRange(booking.start_date, booking.end_date)}</p>
-
-                  <span className={`status-badge status-badge--${booking.status}`}>
-                    {booking.status}
-                  </span>
-
-                  {endingSoon && <span className="badge badge--ending-soon">Ending soon</span>}
-
-                  <p className="booking-card__total">Total: LKR {booking.total_amount}</p>
-
-                  {REMAINING_STATUSES.includes(booking.status) && (
-                    <p className="booking-card__remaining">
-                      {booking.days_remaining} days remaining
-                    </p>
-                  )}
-
-                  {CANCELLABLE_STATUSES.includes(booking.status) && (
-                    <button
-                      type="button"
-                      onClick={() => handleCancel(booking.id)}
-                      disabled={cancellingId === booking.id}
-                      aria-label={`Cancel booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
-                    >
-                      {cancellingId === booking.id ? 'Cancelling…' : 'Cancel'}
-                    </button>
-                  )}
-
-                  {EXTENDABLE_STATUSES.includes(booking.status) &&
-                    (pendingExtensionIds.has(booking.id) ? (
-                      <span className="status-badge status-badge--pending">
-                        Extension requested
-                      </span>
-                    ) : (
-                      <>
-                        {extendingId !== booking.id && (
-                          <button
-                            type="button"
-                            onClick={() => openExtendForm(booking.id)}
-                            aria-label={`Extend booking for ${booking.vehicle.make} ${booking.vehicle.model}`}
-                          >
-                            Extend
-                          </button>
-                        )}
-
-                        {extendingId === booking.id && (
-                          <form
-                            className="extension-form"
-                            onSubmit={(event) => handleRequestExtension(event, booking.id)}
-                          >
-                            {extensionError && (
-                              <p className="form-error" role="alert">
-                                {extensionError}
-                              </p>
-                            )}
-
-                            <div className="form-field">
-                              <label htmlFor={`extension-date-${booking.id}`}>
-                                New return date
-                              </label>
-                              <input
-                                id={`extension-date-${booking.id}`}
-                                type="date"
-                                min={format(addDays(new Date(booking.end_date), 1), 'yyyy-MM-dd')}
-                                value={extensionDate}
-                                onChange={(event) => setExtensionDate(event.target.value)}
-                                required
-                              />
-                            </div>
-
-                            <button
-                              type="submit"
-                              disabled={extensionSubmittingId === booking.id}
-                            >
-                              {extensionSubmittingId === booking.id
-                                ? 'Requesting…'
-                                : 'Request extension'}
-                            </button>
-                            <button type="button" onClick={closeExtendForm} aria-label="Cancel extension request">
-                              Cancel
-                            </button>
-                          </form>
-                        )}
-                      </>
-                    ))}
-                </article>
-              </li>
-            )
-          })}
-        </ul>
+          {archivedBookings.length > 0 && (
+            <details className="booking-archive">
+              <summary className="booking-archive__summary">
+                Past &amp; cancelled ({archivedBookings.length})
+              </summary>
+              <ul className="booking-archive__list">
+                {archivedBookings.map((booking) => (
+                  <li key={booking.id} className="booking-archive__row">
+                    <span className="booking-archive__vehicle booking-card__vehicle">
+                      {booking.vehicle.make} {booking.vehicle.model}
+                    </span>
+                    <span className="booking-archive__dates">
+                      {formatDateRange(booking.start_date, booking.end_date)}
+                    </span>
+                    <span className={`status-badge status-badge--${booking.status}`}>
+                      {booking.status}
+                    </span>
+                    <span className="booking-archive__total">LKR {booking.total_amount}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          </div>
+        </div>
       )}
     </section>
   )

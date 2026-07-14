@@ -1,31 +1,12 @@
-import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { getHealth } from '../api/health.js'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { usePageTitle } from '../hooks/usePageTitle.js'
+import VehicleArt from '../components/VehicleArt.jsx'
 
 function Home() {
   const { user } = useAuth()
-  const [status, setStatus] = useState('checking...')
 
   usePageTitle('Home')
-
-  // TODO: remove this temporary API status check once a real dashboard exists
-  useEffect(() => {
-    let cancelled = false
-
-    getHealth()
-      .then((data) => {
-        if (!cancelled) setStatus(`API: ${data.status} / db ${data.db}`)
-      })
-      .catch((err) => {
-        if (!cancelled) setStatus(`Here ${err.message}`)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // hosts landing on / are redirected to their dashboard; this is UX, not access control.
   if (user?.role === 'host') {
@@ -34,17 +15,45 @@ function Home() {
 
   return (
     <section className="home">
-      <h1 className="home__heading">EazyRents</h1>
-      <p className="home__tagline">Rent the right vehicle, right when you need it.</p>
+      <div className="home__hero">
+        <div className="home__hero-copy">
+          <p className="home__kicker">Vehicle rentals made easy</p>
+          <h1 className="home__heading">Time to hit the road</h1>
+          <p className="home__tagline">
+            Rent cars, vans, and scooters from local hosts — by the day, for
+            exactly as long as your trip needs.
+          </p>
 
-      <section className="home__api-status">
-        <p>{status}</p>
-      </section>
+          <div className="home__actions">
+            <Link to="/vehicles/types" className="btn btn--primary btn--large">
+              Browse vehicles
+            </Link>
+            <Link to="/register?role=host" className="btn btn--secondary btn--large">
+              Become a host
+            </Link>
+          </div>
+        </div>
 
-      <section className="home-browse">
-        <Link to="/vehicles/types">Browse Vehicles</Link>
-        {/* <Link to="/register?role=host"> List your vehicle — become a host</Link> */}
-      </section>
+        <div className="home__hero-art" aria-hidden="true">
+          <VehicleArt type="van" className="home__hero-van" />
+          <VehicleArt type="road" className="home__hero-road" />
+        </div>
+      </div>
+
+      <ul className="home__highlights">
+        <li className="home__highlight">
+          <h2>Book by the day</h2>
+          <p>Pick your dates on a live calendar — what you see free is free.</p>
+        </li>
+        <li className="home__highlight">
+          <h2>No double-booking, ever</h2>
+          <p>Availability is enforced by the database itself, not by luck.</p>
+        </li>
+        <li className="home__highlight">
+          <h2>Extend when plans change</h2>
+          <p>Ask for more days in one tap; your host approves in one more.</p>
+        </li>
+      </ul>
     </section>
   )
 }

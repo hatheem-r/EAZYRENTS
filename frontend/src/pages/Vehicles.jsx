@@ -41,19 +41,23 @@ function Vehicles() {
   return (
     <section className="vehicles">
 
-      {/* {activeType && (
-        <nav className="breadcrumb">
-          <Link to="/vehicles/types">Back</Link>
-          <span>{pluralizeType(activeType)}</span>
-        </nav>)} */}
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/vehicles/types" className="breadcrumb__link">
+          All types
+        </Link>
+        {activeType && <span className="breadcrumb__current">{pluralizeType(activeType)}</span>}
+      </nav>
 
-      { <nav className="breadcrumb">
-          <Link to="/vehicles/types">Back</Link>
-        </nav>}
-
-      <h1 className="vehicles__heading">
-        {activeType ? pluralizeType(activeType) : 'All vehicles'}
-      </h1>
+      <header className="page-header">
+        <h1 className="vehicles__heading">
+          {activeType ? pluralizeType(activeType) : 'All vehicles'}
+        </h1>
+        {!loading && !error && data && (
+          <p className="page-header__lede">
+            {data.total} {data.total === 1 ? 'vehicle' : 'vehicles'} listed by local hosts.
+          </p>
+        )}
+      </header>
 
       <FilterBar />
 
@@ -62,14 +66,19 @@ function Vehicles() {
       {!loading && error && (
         <section className="error-panel" role="alert">
           <p>{error.message}</p>
-          <button type="button" onClick={refetch}>
+          <button type="button" className="btn btn--secondary" onClick={refetch}>
             Retry
           </button>
         </section>
       )}
 
       {!loading && !error && data?.vehicles.length === 0 && (
-        <p className="empty-state">No vehicles match your filters.</p>
+        <div className="empty-state">
+          <p>No vehicles match these filters — try widening the price range or another city.</p>
+          <Link to="/vehicles" className="btn btn--secondary btn--small">
+            Clear all filters
+          </Link>
+        </div>
       )}
 
       {!loading && !error && data?.vehicles.length > 0 && (
@@ -81,7 +90,7 @@ function Vehicles() {
           </ul>
 
           <nav className="pagination">
-            <button type="button" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
+            <button type="button" className="btn btn--secondary btn--small" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
               Prev
             </button>
             <span className="pagination__status">
@@ -89,6 +98,7 @@ function Vehicles() {
             </span>
             <button
               type="button"
+              className="btn btn--secondary btn--small"
               disabled={page >= totalPages}
               onClick={() => goToPage(page + 1)}
             >

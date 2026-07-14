@@ -40,31 +40,43 @@ function HostExtensions() {
 
   return (
     <section className="extension-inbox">
-      <h1>Extension requests</h1>
+      <header className="page-header">
+        <h1>Extension requests</h1>
+        <p className="page-header__lede">
+          Renters asking for more days. Approving updates the booking instantly.
+        </p>
+      </header>
 
       {extensionsApi.loading && <Skeleton variant="card" count={3} />}
 
       {!extensionsApi.loading && extensionsApi.error && (
         <section className="error-panel" role="alert">
           <p>{extensionsApi.error.message}</p>
-          <button type="button" onClick={extensionsApi.refetch}>
+          <button type="button" className="btn btn--secondary" onClick={extensionsApi.refetch}>
             Retry
           </button>
         </section>
       )}
 
       {!extensionsApi.loading && !extensionsApi.error && extensionsApi.data.extensions.length === 0 && (
-        <p className="empty-state">No pending requests.</p>
+        <div className="empty-state">
+          <p>No pending requests — all caught up.</p>
+        </div>
       )}
 
       {!extensionsApi.loading && !extensionsApi.error && extensionsApi.data.extensions.length > 0 && (
         <ul className="extension-list">
           {extensionsApi.data.extensions.map((request) => (
             <li key={request.id} className="extension-card">
-              <p>
-                {request.renter_name} requests {request.make} {request.model} until{' '}
-                {format(new Date(request.requested_end), 'MMM d, yyyy')} (currently until{' '}
-                {format(new Date(request.end_date), 'MMM d, yyyy')})
+              <p className="extension-card__text">
+                <strong>{request.renter_name}</strong> wants {request.make} {request.model}{' '}
+                until{' '}
+                <span className="extension-card__new-date">
+                  {format(new Date(request.requested_end), 'MMM d, yyyy')}
+                </span>{' '}
+                <span className="extension-card__current">
+                  (currently until {format(new Date(request.end_date), 'MMM d, yyyy')})
+                </span>
               </p>
 
               {extensionCardErrors[request.id] && (
@@ -73,22 +85,26 @@ function HostExtensions() {
                 </p>
               )}
 
-              <button
-                type="button"
-                onClick={() => handleExtensionAction(request.id, approveExtension)}
-                disabled={submittingExtensionId === request.id}
-                aria-label={`Approve extension request from ${request.renter_name}`}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExtensionAction(request.id, rejectExtension)}
-                disabled={submittingExtensionId === request.id}
-                aria-label={`Reject extension request from ${request.renter_name}`}
-              >
-                Reject
-              </button>
+              <div className="extension-card__actions">
+                <button
+                  type="button"
+                  className="btn btn--primary btn--small"
+                  onClick={() => handleExtensionAction(request.id, approveExtension)}
+                  disabled={submittingExtensionId === request.id}
+                  aria-label={`Approve extension request from ${request.renter_name}`}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--danger btn--small"
+                  onClick={() => handleExtensionAction(request.id, rejectExtension)}
+                  disabled={submittingExtensionId === request.id}
+                  aria-label={`Reject extension request from ${request.renter_name}`}
+                >
+                  Reject
+                </button>
+              </div>
             </li>
           ))}
         </ul>

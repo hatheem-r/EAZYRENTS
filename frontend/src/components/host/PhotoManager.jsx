@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { photoUrl } from '../../utils/imageUrl.js'
 import { uploadVehiclePhotos, deleteVehiclePhoto } from '../../api/host.js'
 import { ApiError } from '../../api/client.js'
+import { useConfirm } from '../ConfirmDialog.jsx'
 
 const MAX_FILES_PER_UPLOAD = 5
 const MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -27,6 +28,7 @@ function validateFiles(files) {
 }
 
 function PhotoManager({ vehicle, onChanged }) {
+  const confirm = useConfirm()
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState(null)
   const [inputKey, setInputKey] = useState(0)
@@ -78,7 +80,7 @@ function PhotoManager({ vehicle, onChanged }) {
   }
 
   async function handleDeletePhoto(url) {
-    if (!window.confirm('Remove this photo?')) return
+    if (!(await confirm('Remove this photo?', { confirmLabel: 'Remove photo' }))) return
 
     setDeleteError('')
 
@@ -99,8 +101,12 @@ function PhotoManager({ vehicle, onChanged }) {
 
   return (
     <section className="photo-manager">
-      <button type="button" onClick={() => setOpen((isOpen) => !isOpen)}>
-        {open ? 'Hide photos' : 'Photos'}
+      <button
+        type="button"
+        className="btn btn--ghost btn--small photo-manager__toggle"
+        onClick={() => setOpen((isOpen) => !isOpen)}
+      >
+        {open ? 'Hide photos' : `Photos (${photos.length})`}
       </button>
 
       {open && (
@@ -122,6 +128,7 @@ function PhotoManager({ vehicle, onChanged }) {
                   <img src={photoUrl(url)} alt={`${vehicle.make} ${vehicle.model} photo`} />
                   <button
                     type="button"
+                    className="btn btn--danger btn--small photo-manager__remove"
                     onClick={() => handleDeletePhoto(url)}
                     aria-label={`Remove photo of ${vehicle.make} ${vehicle.model}`}
                   >
@@ -152,7 +159,7 @@ function PhotoManager({ vehicle, onChanged }) {
               />
             </div>
 
-            <button type="submit" disabled={uploading}>
+            <button type="submit" className="btn btn--secondary btn--small" disabled={uploading}>
               {uploading ? 'Uploading…' : 'Upload'}
             </button>
           </form>

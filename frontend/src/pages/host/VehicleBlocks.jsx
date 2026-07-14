@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/style.css'
 import { format } from 'date-fns'
 import { useApi } from '../../hooks/useApi.js'
 import { usePageTitle } from '../../hooks/usePageTitle.js'
@@ -10,6 +9,7 @@ import { listVehicleBlocks, createBlock, deleteBlock } from '../../api/host.js'
 import { ApiError } from '../../api/client.js'
 import { buildDisabledMatchers, rangeOverlapsDisabled, toUtcMidnightIso } from '../../lib/availability.js'
 import Skeleton from '../../components/Skeleton.jsx'
+import { useConfirm } from '../../components/ConfirmDialog.jsx'
 
 function formatDateRange(startDate, endDate) {
   // checkout day is shown to users; the exclusive-end adjustment is only for
@@ -29,6 +29,7 @@ function VehicleBlocks() {
   const [submitting, setSubmitting] = useState(false)
   const [blockError, setBlockError] = useState(null)
   const [listError, setListError] = useState('')
+  const confirm = useConfirm()
 
   usePageTitle(vehicleApi.data ? `Blocked dates — ${vehicleApi.data.make} ${vehicleApi.data.model}` : 'Blocked dates')
 
@@ -85,7 +86,7 @@ function VehicleBlocks() {
   }
 
   async function handleDeleteBlock(blockId) {
-    if (!window.confirm('Delete this block?')) return
+    if (!(await confirm('Delete this block? Renters will be able to book these dates again.', { confirmLabel: 'Delete block' }))) return
 
     setListError('')
 
@@ -102,10 +103,10 @@ function VehicleBlocks() {
 
   return (
     <section className="vehicle-blocks">
-      <nav className="breadcrumb">
-        <Link to="/host">My vehicles</Link>
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        <Link to="/host" className="breadcrumb__link">My vehicles</Link>
         {!loading && !error && (
-          <span>
+          <span className="breadcrumb__current">
             {vehicleApi.data.make} {vehicleApi.data.model}
           </span>
         )}
@@ -115,15 +116,17 @@ function VehicleBlocks() {
 
       {!loading && error && error.status === 404 && (
         <section className="error-panel">
-          <p>Vehicle not found</p>
-          <Link to="/host">Back to host dashboard</Link>
+          <p>Vehicle not found.</p>
+          <Link to="/host" className="btn btn--secondary btn--small">
+            Back to my vehicles
+          </Link>
         </section>
       )}
 
       {!loading && error && error.status !== 404 && (
         <section className="error-panel" role="alert">
           <p>{error.message}</p>
-          <button type="button" onClick={retry}>
+          <button type="button" className="btn btn--secondary" onClick={retry}>
             Retry
           </button>
         </section>
@@ -131,11 +134,18 @@ function VehicleBlocks() {
 
       {!loading && !error && (
         <>
-          <h1 className="vehicle-blocks__heading">
-            Blocked dates — {vehicleApi.data.make} {vehicleApi.data.model}
-          </h1>
+          <header className="page-header">
+            <h1 className="vehicle-blocks__heading">
+              Blocked dates — {vehicleApi.data.make} {vehicleApi.data.model}
+            </h1>
+            <p className="page-header__lede">
+              Renters can't book any day you block. Bookings that already exist stay untouched.
+            </p>
+          </header>
 
+          <div className="vehicle-blocks__layout">
           <section className="block-list">
+            <h2 className="block-list__heading">Current blocks</h2>
             {listError && (
               <p className="form-error" role="alert">
                 {listError}
@@ -143,15 +153,22 @@ function VehicleBlocks() {
             )}
 
             {blocksApi.data.blocks.length === 0 ? (
-              <p className="empty-state">No blocked dates yet.</p>
+              <p className="empty-state empty-state--compact">
+                No blocked dates yet — every free day is bookable.
+              </p>
             ) : (
               <ul>
                 {blocksApi.data.blocks.map((block) => (
                   <li key={block.id} className="block-card">
-                    <p>{formatDateRange(block.start_date, block.end_date)}</p>
-                    {block.reason && <p className="block-card__reason">{block.reason}</p>}
+                    <div className="block-card__info">
+                      <p className="block-card__dates">
+                        {formatDateRange(block.start_date, block.end_date)}
+                      </p>
+                      {block.reason && <p className="block-card__reason">{block.reason}</p>}
+                    </div>
                     <button
                       type="button"
+                      className="btn btn--danger btn--small"
                       onClick={() => handleDeleteBlock(block.id)}
                       aria-label={`Delete block ${formatDateRange(block.start_date, block.end_date)}`}
                     >
@@ -174,13 +191,16 @@ function VehicleBlocks() {
 
             {blockError?.status === 404 && (
               <p>
-                <Link to="/host">Back to host dashboard</Link>
+                <Link to="/host" className="btn btn--secondary btn--small">
+                  Back to my vehicles
+                </Link>
               </p>
             )}
 
             <DayPicker
               mode="range"
-              numberOfMonths={2}
+              numberOfMonths={1}
+              startMonth={new Date()}
               disabled={buildDisabledMatchers(vehicleApi.data.unavailable_dates)}
               excludeDisabled
               selected={range}
@@ -199,11 +219,16 @@ function VehicleBlocks() {
                 />
               </div>
 
-              <button type="submit" disabled={!hasCompleteRange || submitting}>
+              <button
+                type="submit"
+                className="btn btn--primary"
+                disabled={!hasCompleteRange || submitting}
+              >
                 {submitting ? 'Blocking…' : 'Block these dates'}
               </button>
             </form>
           </section>
+          </div>
         </>
       )}
     </section>

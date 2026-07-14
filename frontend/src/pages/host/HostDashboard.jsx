@@ -8,6 +8,7 @@ import { ApiError } from '../../api/client.js'
 import VehicleForm from '../../components/host/VehicleForm.jsx'
 import PhotoManager from '../../components/host/PhotoManager.jsx'
 import Skeleton from '../../components/Skeleton.jsx'
+import { useConfirm } from '../../components/ConfirmDialog.jsx'
 
 const ACTIVE_STATUSES = ['active', 'confirmed']
 
@@ -43,6 +44,7 @@ function HostDashboard() {
   const [addFormOpen, setAddFormOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [dashboardError, setDashboardError] = useState('')
+  const confirm = useConfirm()
   const [dashboardNotice, setDashboardNotice] = useState('')
 
   usePageTitle('My vehicles')
@@ -76,7 +78,7 @@ function HostDashboard() {
   }
 
   async function handleRemove(id) {
-    if (!window.confirm('Remove this vehicle? Upcoming bookings will be cancelled.')) return
+    if (!(await confirm('Remove this vehicle? Upcoming bookings will be cancelled.', { confirmLabel: 'Remove vehicle' }))) return
 
     setDashboardError('')
     setDashboardNotice('')
@@ -98,7 +100,21 @@ function HostDashboard() {
 
   return (
     <section className="host-dashboard">
-      <h1 className="host-dashboard__heading">My vehicles</h1>
+      <header className="page-header page-header--row">
+        <div>
+          <h1 className="host-dashboard__heading">My vehicles</h1>
+          <p className="page-header__lede">
+            Your fleet, who has it, and what's coming up next.
+          </p>
+        </div>
+        <button
+          type="button"
+          className={addFormOpen ? 'btn btn--ghost' : 'btn btn--primary'}
+          onClick={() => setAddFormOpen((open) => !open)}
+        >
+          {addFormOpen ? 'Cancel' : '+ Add vehicle'}
+        </button>
+      </header>
 
       {dashboardError && (
         <p className="form-error" role="alert">
@@ -112,10 +128,6 @@ function HostDashboard() {
         </p>
       )}
 
-      <button type="button" onClick={() => setAddFormOpen((open) => !open)}>
-        {addFormOpen ? 'Cancel' : '+ Add vehicle'}
-      </button>
-
       {addFormOpen && <VehicleForm onSubmit={handleCreate} onCancel={() => setAddFormOpen(false)} />}
 
       {loading && <Skeleton variant="card" count={3} />}
@@ -123,14 +135,16 @@ function HostDashboard() {
       {!loading && error && (
         <section className="error-panel" role="alert">
           <p>{error.message}</p>
-          <button type="button" onClick={retry}>
+          <button type="button" className="btn btn--secondary" onClick={retry}>
             Retry
           </button>
         </section>
       )}
 
       {!loading && !error && vehiclesApi.data.vehicles.length === 0 && (
-        <p className="empty-state">No vehicles yet.</p>
+        <div className="empty-state">
+          <p>No vehicles listed yet. Add your first one and start earning on days it would sit idle.</p>
+        </div>
       )}
 
       {!loading && !error && vehiclesApi.data.vehicles.length > 0 && (
@@ -153,50 +167,71 @@ function HostDashboard() {
                     />
                   ) : (
                     <>
-                      <h2>
-                        {vehicle.make} {vehicle.model}
-                      </h2>
-                      <span className="host-vehicle-card__type">{vehicle.type}</span>
-                      <span className="host-vehicle-card__city">{vehicle.city}</span>
-                      <span className="host-vehicle-card__price">LKR {vehicle.price_per_day}/day</span>
+                      <header className="host-vehicle-card__header">
+                        <h2 className="host-vehicle-card__title">
+                          {vehicle.make} {vehicle.model}
+                        </h2>
+                        <span className="host-vehicle-card__type">{vehicle.type}</span>
+                      </header>
 
-                      {currentBooking ? (
-                        <span className="vehicle-status vehicle-status--rented">
-                          Rented by {currentBooking.renter.name} until{' '}
-                          {format(new Date(currentBooking.end_date), 'MMM d, yyyy')}
+                      <div
+                        className={
+                          currentBooking
+                            ? 'host-vehicle-card__status host-vehicle-card__status--rented'
+                            : 'host-vehicle-card__status host-vehicle-card__status--available'
+                        }
+                      >
+                        {currentBooking ? (
+                          <span className="vehicle-status vehicle-status--rented">
+                            Rented by <strong>{currentBooking.renter.name}</strong> until{' '}
+                            {format(new Date(currentBooking.end_date), 'MMM d, yyyy')}
+                          </span>
+                        ) : (
+                          <span className="vehicle-status vehicle-status--available">
+                            Available now
+                          </span>
+                        )}
+                        {nextBooking && (
+                          <p className="vehicle-status__next">
+                            Next: {format(new Date(nextBooking.start_date), 'MMM d')}–
+                            {format(new Date(nextBooking.end_date), 'MMM d')},{' '}
+                            {nextBooking.renter.name}
+                          </p>
+                        )}
+                      </div>
+
+                      <p className="host-vehicle-card__meta">
+                        <span className="host-vehicle-card__price">
+                          LKR {vehicle.price_per_day}
+                          <span className="host-vehicle-card__price-unit">/day</span>
                         </span>
-                      ) : (
-                        <span className="vehicle-status vehicle-status--available">Available</span>
-                      )}
-
-                      {nextBooking && (
-                        <p className="vehicle-status__next">
-                          Next: {format(new Date(nextBooking.start_date), 'MMM d')}-{format(new Date(nextBooking.end_date), 'MMM d')},{' '}
-                          {nextBooking.renter.name}
-                        </p>
-                      )}
+                        <span className="host-vehicle-card__city">{vehicle.city}</span>
+                      </p>
 
                       <div className="host-vehicle-card__actions">
                         <button
                           type="button"
+                          className="btn btn--secondary btn--small"
                           onClick={() => setEditingId(vehicle.id)}
                           aria-label={`Edit ${vehicle.make} ${vehicle.model}`}
                         >
                           Edit
                         </button>
+                        <Link
+                          to={`/host/vehicles/${vehicle.id}/blocks`}
+                          className="btn btn--secondary btn--small"
+                          aria-label={`Manage blocks for ${vehicle.make} ${vehicle.model}`}
+                        >
+                          Manage blocks
+                        </Link>
                         <button
                           type="button"
+                          className="btn btn--danger btn--small"
                           onClick={() => handleRemove(vehicle.id)}
                           aria-label={`Remove ${vehicle.make} ${vehicle.model}`}
                         >
                           Remove
                         </button>
-                        <Link
-                          to={`/host/vehicles/${vehicle.id}/blocks`}
-                          aria-label={`Manage blocks for ${vehicle.make} ${vehicle.model}`}
-                        >
-                          Manage blocks
-                        </Link>
                       </div>
 
                       <PhotoManager vehicle={vehicle} onChanged={vehiclesApi.refetch} />

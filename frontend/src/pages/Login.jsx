@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { ApiError } from '../api/client.js'
 import { resolvePostAuthDestination } from '../lib/authRedirect.js'
 import { usePageTitle } from '../hooks/usePageTitle.js'
+import VehicleArt from '../components/VehicleArt.jsx'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -91,65 +92,75 @@ function Login() {
   }
 
   return (
-    <section className="login">
-      <h1 className="login__heading">Login</h1>
+    <section className="auth-page login">
+      <div className="auth-card">
+        <div className="auth-card__art" aria-hidden="true">
+          <VehicleArt type="scooter" />
+          <VehicleArt type="road" className="auth-card__road" />
+          <p className="auth-card__art-line">Pick it up where you left off.</p>
+        </div>
 
-      {sessionExpired && (
-        <p className="form-info" role="status">
-          Your session expired, please log in again.
-        </p>
-      )}
+        <div className="auth-card__body">
+          <h1 className="auth-heading login__heading">Welcome back</h1>
+          <p className="auth-subheading">Log in to book, extend, or check on your trips.</p>
 
-      <form className="auth-form" onSubmit={handleSubmit} noValidate>
-        {formError && (
-          <p className="form-error" role="alert">
-            {formError}
+          {sessionExpired && (
+            <p className="form-info" role="status">
+              Your session expired, please log in again.
+            </p>
+          )}
+
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+
+            <div className="form-field">
+              <label htmlFor="login-email">Email</label>
+              <input
+                id="login-email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                autoComplete="email"
+              />
+              {fieldErrors.email && (
+                <p className="form-error" role="alert">
+                  {fieldErrors.email}
+                </p>
+              )}
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="login-password">Password</label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={handleChange}
+                autoComplete="current-password"
+              />
+              {fieldErrors.password && (
+                <p className="form-error" role="alert">
+                  {fieldErrors.password}
+                </p>
+              )}
+            </div>
+
+            <button type="submit" className="btn btn--primary btn--block" disabled={submitting}>
+              {submitting ? 'Logging in...' : 'Log in'}
+            </button>
+          </form>
+
+          <p className="auth-switch">
+            New to EazyRents? <Link to="/register">Create an account</Link>
           </p>
-        )}
-
-        <div className="form-field">
-          <label htmlFor="login-email">Email</label>
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            value={form.email}
-            onChange={handleChange}
-            autoComplete="email"
-          />
-          {fieldErrors.email && (
-            <p className="form-error" role="alert">
-              {fieldErrors.email}
-            </p>
-          )}
         </div>
-
-        <div className="form-field">
-          <label htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            name="password"
-            type="password"
-            value={form.password}
-            onChange={handleChange}
-            autoComplete="current-password"
-          />
-          {fieldErrors.password && (
-            <p className="form-error" role="alert">
-              {fieldErrors.password}
-            </p>
-          )}
-        </div>
-
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Logging in...' : 'Log in'}
-        </button>
-      </form>
-
-      <div>Do not have an Account ?  
-        <Link to="/register"> Register here</Link>
       </div>
-
     </section>
   )
 }

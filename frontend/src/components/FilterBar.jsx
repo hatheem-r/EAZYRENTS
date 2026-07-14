@@ -145,10 +145,14 @@ function FilterBar() {
         />
       </div>
 
-      <button type="submit">Apply</button>
-      <button type="button" onClick={handleClear}>
-        Clear
-      </button>
+      <div className="filter-bar__actions">
+        <button type="submit" className="btn btn--primary btn--small">
+          Apply
+        </button>
+        <button type="button" className="btn btn--ghost btn--small" onClick={handleClear}>
+          Clear
+        </button>
+      </div>
     </form>
   )
 }
