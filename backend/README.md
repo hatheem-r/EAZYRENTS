@@ -184,6 +184,18 @@ npm run dev                 # nodemon, http://localhost:3000
 ```
 
 **Quickstart:**
+#.env----------------------------------------------------------------------
+.env:PORT=3000
+
+DATABASE_URL=postgres://hatheemrafeek@localhost:5432/eazyrents
+
+JWT_SECRET=a248727ee325404430b04bd37030bd0e861124b6b06e1dc634be495e5d4b32ea9a80fc3cfc24c625ac29d2df2d1317a61e86540dac6f3c04f7ecec988e5440ed
+
+JWT_EXPIRES_IN=15m
+
+CORS_ORIGIN=http://localhost:5173
+#.env----------------------------------------------------------------------
+
 
 ```bash
 curl http://localhost:3000/healthz
@@ -244,6 +256,9 @@ src/
 migrations/             # versioned schema (node-pg-migrate)
 scripts/                # seed.js, concurrency-test.js
 ```
+
+Truncating tables:
+psql -d eazyrents -c "TRUNCATE audit_log, extension_requests, bookings, availability_blocks, vehicles, users RESTART IDENTITY CASCADE;"
 
 ## Roadmap
 
