@@ -1,8 +1,13 @@
-# EazyRents — Vehicle Rental Backend
+# EazyRents 🚗🛺
 
-A REST API for a peer-to-peer vehicle rental platform. Hosts list vehicles, set prices, and block out unavailable dates; renters search, book for a date range, extend, and cancel. The project's engineering focus is **correctness under concurrency**: double-booking is made impossible at the database layer and proven with a concurrent load test.
+**A full-stack peer-to-peer vehicle rental platform for tourists exploring Sri Lanka — with an integrated LLM-powered travel assistant.**
 
-**Stack:** Node.js · Express (ES modules) · PostgreSQL · JWT auth · zod validation · pino logging
+Hosts list vehicles (cars, vans, SUVs, bikes, scooters, and tuk-tuks), set prices, and block out unavailable dates. Renters — primarily tourists — search, filter, book for a date range, request extensions, and cancel. A built-in AI assistant, **Trip Buddy**, helps visitors plan their Sri Lankan trip and pick the right vehicle for it.
+
+The project has two engineering focal points:
+
+1. **Correctness under concurrency** — double-booking is made *impossible at the database layer* using PostgreSQL exclusion constraints, not just checked in application code.
+2. **Right-sized LLM integration** — a domain-scoped, prompt-engineered assistant built with cost, abuse, and safety controls, deliberately kept as simple as the problem allows.
 
 ---
 
@@ -10,16 +15,29 @@ A REST API for a peer-to-peer vehicle rental platform. Hosts list vehicles, set 
   <!-- Row 1 -->
   <tr>
     <td align="center" width="33.3%"><img src="screenshots/home.png" alt="Home" width="100%"></td>
+    <td align="center" width="33.3%"><img src="screenshots/response.png" alt="Response of Chatbot" width="100%"></td>
     <td align="center" width="33.3%"><img src="screenshots/vehicles.png" alt="Vehicles" width="100%"></td>
-    <td align="center" width="33.3%"><img src="screenshots/booking.png" alt="Booking" width="100%"></td>
   </tr>
   <!-- Row 2 -->
   <tr>
-    <td align="center" width="33.3%"><img src="screenshots/bookings.png" alt="Customers' Bookings page" width="100%"></td>
-    <td align="center" width="33.3%"><img src="screenshots/host_vehicle.png" alt="Host creating a Vehicle" width="100%"></td>
-    <td align="center" width="33.3%"><img src="screenshots/host_booking.png" alt="Host Vehicles' orders" width="100%"></td>
+    <td align="center" width="25%"><img src="screenshots/booking.png" alt="Booking" width="100%"></td>
+    <td align="center" width="25%"><img src="screenshots/bookings.png" alt="Customers' Bookings page" width="100%"></td>
+    <td align="center" width="25%"><img src="screenshots/host_vehicle.png" alt="Host creating a Vehicle" width="100%"></td>
+    <td align="center" width="25%"><img src="screenshots/host_booking.png" alt="Host Vehicles' orders" width="100%"></td>
   </tr>
 </table>
+
+---
+
+### Trip Buddy — AI travel assistant 🛺
+A floating, animated tuk-tuk button (drawn in the app's own flat-cartoon SVG style) sits on every page. Clicking it opens a chat panel where visitors can ask things like *"Which vehicle should I rent for Ella?"* or *"Plan a 3-day trip from Colombo."*
+
+Design highlights:
+- **Domain-scoped via system prompt** — the assistant is prompt-engineered (OpenAI `gpt-4o-mini`) with the platform's actual vehicle types, Sri Lankan destinations and seasons, and vehicle-to-route heuristics (tuk-tuks for coastal hops, vans for group hill-country tours). It politely declines off-topic requests and never invents listings or prices.
+- **Stateless server** — the client sends the visible conversation each turn; no chat state or extra tables server-side.
+- **Cost & abuse controls** — public (no login required) but defended: zod-validated message schema (≤ 20 messages × ≤ 1000 chars), reply token cap, and a dedicated per-IP rate limit (30 req / 15 min).
+- **Graceful degradation** — if no API key is configured the server still boots and only `/chat` returns 503; upstream OpenAI failures are logged server-side and surfaced as a friendly 502.
+- **Accessible UI** — Escape-to-close, focus management, ARIA labels, and `prefers-reduced-motion` support scoped to the widget.
 
 ## Architecture
 

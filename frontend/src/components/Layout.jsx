@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useApi } from '../hooks/useApi.js'
 import { listExtensionRequests } from '../api/host.js'
+import ChatWidget from './ChatWidget.jsx'
 
 function navLinkClassName({ isActive }) {
   return isActive ? 'nav-link nav-link--active' : 'nav-link'
@@ -125,6 +126,8 @@ function Layout() {
           <p className="site-footer__meta">Built on PostgreSQL exclusion constraints — one vehicle, one booking, guaranteed.</p>
         </div>
       </footer>
+
+      <ChatWidget />
     </>
   )
 }
