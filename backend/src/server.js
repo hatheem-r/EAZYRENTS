@@ -10,6 +10,7 @@ import vehicleRoutes from "./routes/vehicle.routes.js"
 import bookingRoutes from "./routes/booking.routes.js"
 import hostRoutes from "./routes/host.routes.js"
 import extensionRoutes from "./routes/extension.routes.js"
+import chatRoutes from "./routes/chat.routes.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 import { requireAuth, requireRole } from "./middleware/auth.js"
 import { startJobs } from "./jobs/bookingLifecycle.js"
@@ -30,6 +31,20 @@ const authRateLimiter = rateLimit({
     legacyHeaders: false,
     handler: (req, res) => {
         res.status(429).json({ error: { message: "too many requests" } })
+    },
+})
+
+// /chat is public (no login) and each request spends OpenAI credits, so it
+// gets its own, tighter budget per IP.
+const chatRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (req, res) => {
+        res.status(429).json({
+            error: { message: "you're chatting a bit fast — please wait a moment and try again" },
+        })
     },
 })
 
@@ -57,6 +72,7 @@ app.use("/vehicles", vehicleRoutes)
 app.use("/bookings", bookingRoutes)
 app.use("/host", hostRoutes)
 app.use("/extensions", extensionRoutes)
+app.use("/chat", chatRateLimiter, chatRoutes)
 
 // TODO: remove these test routes once requireAuth/requireRole are exercised elsewhere
 app.get("/me", requireAuth, (req, res) => {
