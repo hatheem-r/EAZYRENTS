@@ -17,9 +17,10 @@ services:
     dockerContext: ./backend
     plan: free
     healthCheckPath: /healthz       # Render waits for this to pass before routing traffic
-    # Runs after the build, before the new version goes live — the correct place
-    # for database migrations.
-    preDeployCommand: npm run migrate up
+    # Free tier doesn't support preDeployCommand, so run migrations at container
+    # start, just before the server boots. node-pg-migrate is idempotent (it
+    # records applied migrations), so this is a safe no-op once the schema exists.
+    dockerCommand: sh -c "npm run migrate up && node src/server.js"
     envVars:
       - key: DATABASE_URL
         fromDatabase:               # auto-wired from the database above
