@@ -1,0 +1,54 @@
+# Render Blueprint — provisions the whole EazyRents stack as infrastructure-as-code:
+# a managed Postgres database, the Dockerized API, and the static frontend.
+# Deploy via Render Dashboard → New → Blueprint (see the checklist you were given).
+
+databases:
+  - name: eazyrents-db
+    databaseName: eazyrents
+    user: eazyrents
+    plan: free                      # free Postgres (note: expires ~30 days after creation)
+
+services:
+  # ---- Backend API: the same Docker image you build and test locally ----
+  - type: web
+    name: eazyrents-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /healthz       # Render waits for this to pass before routing traffic
+    # Runs after the build, before the new version goes live — the correct place
+    # for database migrations.
+    preDeployCommand: npm run migrate up
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:               # auto-wired from the database above
+          name: eazyrents-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true         # Render generates a strong secret; never committed
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        sync: false                 # set to the frontend URL after first deploy
+      # PORT is injected by Render automatically — do not set it here.
+      # OPENAI_API_KEY: add in the dashboard only if you want the /chat feature.
+
+  # ---- Frontend: served as a static site (free, CDN-backed, no cold starts) ----
+  - type: web
+    name: eazyrents-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false                 # baked into the build; set to the backend URL, then redeploy
+    routes:
+      # React Router client-side routing: send unknown paths to index.html
+      # (the static-site equivalent of the nginx try_files rule).
+      - type: rewrite
+        source: /*
+        destination: /index.html
