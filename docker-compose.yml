@@ -1,0 +1,68 @@
+# EazyRents — full stack in one command: `docker compose up --build`
+# Brings up Postgres, runs migrations, starts the API, and serves the frontend.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: eazyrents
+      POSTGRES_PASSWORD: eazyrents_dev_password
+      POSTGRES_DB: eazyrents
+    ports:
+      - "5432:5432"          # exposed so you can inspect the DB from your host
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eazyrents -d eazyrents"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot job: apply database migrations, then exit. The backend waits for
+  # this to finish successfully, so the schema always exists before it starts.
+  migrate:
+    build: ./backend
+    command: npm run migrate up
+    environment:
+      DATABASE_URL: postgres://eazyrents:eazyrents_dev_password@db:5432/eazyrents
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://eazyrents:eazyrents_dev_password@db:5432/eazyrents
+      JWT_SECRET: dev_super_secret_change_me
+      JWT_EXPIRES_IN: 7d
+      CORS_ORIGIN: http://localhost:8080
+      NODE_ENV: production
+      # OPENAI_API_KEY: sk-...   # optional — leave unset; only /chat needs it
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads   # persist uploaded images across restarts
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser talks to the API on the host's published port, not the
+        # internal docker network name — so this is localhost, not "backend".
+        VITE_API_URL: http://localhost:3000
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  uploads_data:
